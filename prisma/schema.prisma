@@ -1,0 +1,441 @@
+/*
+* Scehma
+*/
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+////////////////////
+/// ENUMS
+////////////////////
+
+enum UserRole {
+  ADMIN
+  HOD
+  DEPARTMENT_STAFF
+  STUDENT
+  ACCOUNTANT
+  ADMISSION_OFFICER
+}
+
+enum AdmissionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  DEPT_APPROVED
+  ADMIN_APPROVED
+  PAYMENT_PENDING
+  PAID
+  REJECTED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  INITIATED
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum StudentStatus {
+  ACTIVE
+  SUSPENDED
+  PASSED_OUT
+  ALUMNI
+  DROPOUT
+  TRANSFERRED
+}
+
+enum CertificateType {
+  BONAFIDE
+  CLC
+  MIGRATION
+  TRANSCRIPT
+}
+
+enum CertificateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ISSUED
+}
+
+enum NoticeScope {
+  PUBLIC
+  STUDENTS
+  DEPARTMENTS
+  ADMINS
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+////////////////////
+/// AUTH & USERS
+////////////////////
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  roles         UserRole[]
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  studentProfile StudentProfile?
+  staffProfile   StaffProfile?
+
+  admissions     Admission[]
+  payments       Payment[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+}
+
+model StudentProfile {
+  id            String        @id @default(uuid())
+  userId        String        @unique
+  studentNumber String        @unique
+  status        StudentStatus @default(ACTIVE)
+  dob           DateTime?
+  guardian      String?
+  address       String?
+  photoUrl      String?
+
+  courseId      String
+  batchId       String
+
+  user          User   @relation(fields: [userId], references: [id])
+  course        Course @relation(fields: [courseId], references: [id])
+  batch         Batch  @relation(fields: [batchId], references: [id])
+
+  enrollments   StudentEnrollment[]
+  marks         Mark[]
+  clearances    Clearance[]
+  certificates  CertificateRequest[]
+  graduation    GraduationRecord?
+  alumni        Alumni?
+
+  createdAt     DateTime @default(now())
+}
+
+model StaffProfile {
+  id           String @id @default(uuid())
+  userId       String @unique
+  departmentId String
+  designation  String
+  empCode      String @unique
+  phone        String?
+
+  user         User       @relation(fields: [userId], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id])
+}
+
+////////////////////
+/// DEPARTMENTS & COURSES
+////////////////////
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  description String?
+
+  hodId       String?
+  hod         User?    @relation(fields: [hodId], references: [id])
+
+  courses     Course[]
+  staff       StaffProfile[]
+}
+
+model Course {
+  id             String @id @default(uuid())
+  code           String @unique
+  name           String
+  durationMonths Int
+  departmentId   String
+
+  department     Department @relation(fields: [departmentId], references: [id])
+  subjects       Subject[]
+  batches        Batch[]
+}
+
+model Batch {
+  id        String   @id @default(uuid())
+  name      String
+  intake    Int
+  startDate DateTime
+  endDate   DateTime
+  capacity  Int
+
+  courseId  String
+  course    Course @relation(fields: [courseId], references: [id])
+
+  students  StudentProfile[]
+}
+
+////////////////////
+/// ADMISSIONS
+////////////////////
+
+model AdmissionWindow {
+  id           String   @id @default(uuid())
+  courseId     String
+  departmentId String
+  startDate    DateTime
+  endDate      DateTime
+  enabled      Boolean  @default(false)
+  notes        String?
+
+  course       Course     @relation(fields: [courseId], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id])
+}
+
+model Admission {
+  id            String           @id @default(uuid())
+  applicantId   String
+  courseId      String
+  departmentId  String
+  preferredBatchId String?
+
+  formData      Json
+  documents     Json
+  status        AdmissionStatus  @default(DRAFT)
+
+  applicant     User       @relation(fields: [applicantId], references: [id])
+  course        Course     @relation(fields: [courseId], references: [id])
+  department    Department @relation(fields: [departmentId], references: [id])
+
+  payments      Payment[]
+  history       AdmissionHistory[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AdmissionHistory {
+  id           String @id @default(uuid())
+  admissionId  String
+  fromStatus   AdmissionStatus
+  toStatus     AdmissionStatus
+  changedById  String
+  reason       String?
+  changedAt    DateTime @default(now())
+
+  admission    Admission @relation(fields: [admissionId], references: [id])
+  changedBy    User      @relation(fields: [changedById], references: [id])
+}
+
+////////////////////
+/// PAYMENTS
+////////////////////
+
+model Payment {
+  id           String        @id @default(uuid())
+  studentId    String?
+  admissionId  String?
+  amount       Decimal
+  currency     String
+  gateway      String
+  gatewayRef   String?
+  status       PaymentStatus
+  meta         Json?
+  createdAt    DateTime      @default(now())
+
+  student      StudentProfile? @relation(fields: [studentId], references: [id])
+  admission    Admission?      @relation(fields: [admissionId], references: [id])
+  invoice      Invoice?
+}
+
+model Invoice {
+  id        String   @id @default(uuid())
+  paymentId String  @unique
+  invoiceNo String  @unique
+  pdfUrl    String
+  amount    Decimal
+  issuedAt  DateTime @default(now())
+
+  payment  Payment @relation(fields: [paymentId], references: [id])
+}
+
+////////////////////
+/// ACADEMICS
+////////////////////
+
+model Subject {
+  id        String @id @default(uuid())
+  code      String
+  name      String
+  credit    Int
+  courseId String
+
+  course    Course @relation(fields: [courseId], references: [id])
+  marks     Mark[]
+}
+
+model StudentEnrollment {
+  id        String   @id @default(uuid())
+  studentId String
+  courseId  String
+  batchId   String
+  semester  Int
+  status    String
+  startDate DateTime
+  endDate   DateTime?
+
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+}
+
+model Mark {
+  id         String   @id @default(uuid())
+  studentId  String
+  subjectId  String
+  semester   Int
+  marks      Float
+  grade      String
+  createdAt  DateTime @default(now())
+
+  student    StudentProfile @relation(fields: [studentId], references: [id])
+  subject    Subject        @relation(fields: [subjectId], references: [id])
+}
+
+model Clearance {
+  id          String   @id @default(uuid())
+  studentId   String
+  library     Boolean @default(false)
+  lab         Boolean @default(false)
+  hostel     Boolean @default(false)
+  fee         Boolean @default(false)
+  remarks     String?
+  updatedAt   DateTime @updatedAt
+
+  student     StudentProfile @relation(fields: [studentId], references: [id])
+}
+
+////////////////////
+/// GRADUATION & ALUMNI
+////////////////////
+
+model GraduationRecord {
+  id             String   @id @default(uuid())
+  studentId      String   @unique
+  completionDate DateTime
+  transcriptUrl  String?
+  clcUrl         String?
+  tcUrl          String?
+  marksheetUrl   String?
+  generatedAt    DateTime @default(now())
+
+  student        StudentProfile @relation(fields: [studentId], references: [id])
+}
+
+model Alumni {
+  id         String   @id @default(uuid())
+  studentId  String   @unique
+  occupation String?
+  company    String?
+  email      String?
+  joinedDate DateTime @default(now())
+
+  student    StudentProfile @relation(fields: [studentId], references: [id])
+}
+
+////////////////////
+/// CERTIFICATES
+////////////////////
+
+model CertificateRequest {
+  id          String            @id @default(uuid())
+  studentId   String
+  type        CertificateType
+  purpose     String?
+  documents   Json?
+  status      CertificateStatus @default(PENDING)
+  processedBy String?
+  requestedAt DateTime          @default(now())
+  processedAt DateTime?
+
+  student     StudentProfile @relation(fields: [studentId], references: [id])
+}
+
+////////////////////
+/// CMS CONTENT
+////////////////////
+
+model Gallery {
+  id        String   @id @default(uuid())
+  title     String
+  description String?
+  coverUrl  String?
+  createdAt DateTime @default(now())
+  createdBy String
+
+  images    GalleryImage[]
+}
+
+model GalleryImage {
+  id        String @id @default(uuid())
+  galleryId String
+  imageUrl  String
+  caption   String?
+  order     Int
+
+  gallery   Gallery @relation(fields: [galleryId], references: [id])
+}
+
+model News {
+  id          String      @id @default(uuid())
+  title       String
+  body        String
+  scope       NoticeScope
+  isPublished Boolean     @default(false)
+  publishedAt DateTime?
+  createdBy   String
+}
+
+model Notice {
+  id        String      @id @default(uuid())
+  title     String
+  body      String
+  scope     NoticeScope
+  startAt   DateTime
+  endAt     DateTime
+  createdBy String
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String
+  channel   NotificationChannel
+  title     String
+  body      String
+  read      Boolean             @default(false)
+  sentAt    DateTime            @default(now())
+
+  user      User @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  user      User @relation(fields: [userId], references: [id])
+}
