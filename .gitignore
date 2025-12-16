@@ -4,3 +4,8 @@ node_modules
 
 /src/generated/prisma
 .env.locals
+
+/src/prisma/micrations/
+/src/prisma/micrations
+src/prisma/micrations/
+prisma/micrations/
