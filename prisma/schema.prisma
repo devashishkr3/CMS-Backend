@@ -1,6 +1,6 @@
-/*
-* Scehma
-*/
+// ===============================
+// COLLEGE ERP
+// ===============================
 
 generator client {
   provider = "prisma-client-js"
@@ -18,27 +18,20 @@ datasource db {
 enum UserRole {
   ADMIN
   HOD
-  DEPARTMENT_STAFF
-  STUDENT
-  ACCOUNTANT
-  ADMISSION_OFFICER
+  STAFF
 }
 
 enum AdmissionStatus {
   DRAFT
   SUBMITTED
-  UNDER_REVIEW
-  DEPT_APPROVED
-  ADMIN_APPROVED
+  APPROVED
   PAYMENT_PENDING
   PAID
   REJECTED
-  CANCELLED
 }
 
 enum PaymentStatus {
   INITIATED
-  PENDING
   SUCCESS
   FAILED
   REFUNDED
@@ -50,14 +43,12 @@ enum StudentStatus {
   PASSED_OUT
   ALUMNI
   DROPOUT
-  TRANSFERRED
 }
 
 enum CertificateType {
   BONAFIDE
   CLC
-  MIGRATION
-  TRANSCRIPT
+  TC
 }
 
 enum CertificateStatus {
@@ -69,67 +60,38 @@ enum CertificateStatus {
 
 enum NoticeScope {
   PUBLIC
-  STUDENTS
-  DEPARTMENTS
-  ADMINS
+  STUDENT
+  STAFF
 }
 
 enum NotificationChannel {
-  IN_APP
   EMAIL
   SMS
-  WHATSAPP
+  IN_APP
 }
 
 ////////////////////
-/// AUTH & USERS
+/// USERS (ADMIN / STAFF / HOD)
 ////////////////////
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  passwordHash  String
-  name          String
-  phone         String?
-  roles         UserRole[]
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         UserRole @default(STAFF) //STAFF, ADMIN, HOD
+  isActive     Boolean  @default(true)
 
-  studentProfile StudentProfile?
-  staffProfile   StaffProfile?
+  staffProfile     StaffProfile?
+  hodDepartments   Department[]       @relation("HODRelation")
+  admissionActions AdmissionHistory[]
 
-  admissions     Admission[]
-  payments       Payment[]
-  notifications  Notification[]
-  auditLogs      AuditLog[]
-}
+  notifications Notification[]
+  auditLogs     AuditLog[]
 
-model StudentProfile {
-  id            String        @id @default(uuid())
-  userId        String        @unique
-  studentNumber String        @unique
-  status        StudentStatus @default(ACTIVE)
-  dob           DateTime?
-  guardian      String?
-  address       String?
-  photoUrl      String?
-
-  courseId      String
-  batchId       String
-
-  user          User   @relation(fields: [userId], references: [id])
-  course        Course @relation(fields: [courseId], references: [id])
-  batch         Batch  @relation(fields: [batchId], references: [id])
-
-  enrollments   StudentEnrollment[]
-  marks         Mark[]
-  clearances    Clearance[]
-  certificates  CertificateRequest[]
-  graduation    GraduationRecord?
-  alumni        Alumni?
-
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model StaffProfile {
@@ -138,10 +100,42 @@ model StaffProfile {
   departmentId String
   designation  String
   empCode      String @unique
-  phone        String?
 
-  user         User       @relation(fields: [userId], references: [id])
-  department   Department @relation(fields: [departmentId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
+}
+
+////////////////////
+/// STUDENTS (SEPARATE AUTH)
+////////////////////
+
+model Student {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  phone        String
+  dob          DateTime?
+  guardianName String?
+  address      String?
+  photoUrl     String?
+
+  status StudentStatus @default(ACTIVE)
+
+  courseId  String
+  sessionId String
+
+  course  Course  @relation(fields: [courseId], references: [id])
+  session Session @relation(fields: [sessionId], references: [id])
+
+  semesters    StudentSemester[]
+  payments     Payment[]
+  certificates CertificateRequest[]
+  graduation   GraduationRecord?
+  alumni       Alumni?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 ////////////////////
@@ -149,42 +143,89 @@ model StaffProfile {
 ////////////////////
 
 model Department {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   name        String
-  code        String   @unique
+  code        String  @unique
   description String?
 
-  hodId       String?
-  hod         User?    @relation(fields: [hodId], references: [id])
+  hodId String?
+  hod   User?   @relation("HODRelation", fields: [hodId], references: [id])
 
-  courses     Course[]
-  staff       StaffProfile[]
+  courses Course[]
+  staff   StaffProfile[]
+
+  admissionWindow AdmissionWindow[]
+  admission       Admission[]
 }
 
 model Course {
-  id             String @id @default(uuid())
-  code           String @unique
-  name           String
-  durationMonths Int
-  departmentId   String
+  id            String @id @default(uuid())
+  code          String @unique
+  name          String
+  durationYears Int
+  departmentId  String
 
-  department     Department @relation(fields: [departmentId], references: [id])
-  subjects       Subject[]
-  batches        Batch[]
+  department Department @relation(fields: [departmentId], references: [id])
+
+  students        Student[]
+  subjects        Subject[]
+  sessions        Session[]
+  semesters       Semester[]
+  admission       Admission[]
+  admissionWindow AdmissionWindow[]
 }
 
-model Batch {
-  id        String   @id @default(uuid())
-  name      String
-  intake    Int
-  startDate DateTime
-  endDate   DateTime
-  capacity  Int
+model Subject {
+  id     String @id @default(uuid())
+  code   String
+  name   String
+  credit Int
 
+  semesterId String
+  courseId   String
+
+  semester Semester @relation(fields: [semesterId], references: [id])
+  course   Course   @relation(fields: [courseId], references: [id])
+
+  @@unique([code, courseId])
+}
+
+////////////////////
+/// SESSION & SEMESTER
+////////////////////
+
+model Session {
+  id        String @id @default(uuid())
+  name      String // 2023-2026
+  startYear Int
+  endYear   Int
   courseId  String
-  course    Course @relation(fields: [courseId], references: [id])
 
-  students  StudentProfile[]
+  course   Course    @relation(fields: [courseId], references: [id])
+  students Student[]
+}
+
+model Semester {
+  id       String @id @default(uuid())
+  number   Int
+  courseId String
+
+  course           Course            @relation(fields: [courseId], references: [id])
+  subjects         Subject[]
+  studentSemesters StudentSemester[]
+}
+
+model StudentSemester {
+  id         String    @id @default(uuid())
+  studentId  String
+  semesterId String
+  status     String
+  feePaid    Boolean   @default(false)
+  startDate  DateTime
+  endDate    DateTime?
+
+  student  Student  @relation(fields: [studentId], references: [id])
+  semester Semester @relation(fields: [semesterId], references: [id])
 }
 
 ////////////////////
@@ -198,45 +239,38 @@ model AdmissionWindow {
   startDate    DateTime
   endDate      DateTime
   enabled      Boolean  @default(false)
-  notes        String?
 
-  course       Course     @relation(fields: [courseId], references: [id])
-  department   Department @relation(fields: [departmentId], references: [id])
+  course     Course     @relation(fields: [courseId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
 }
 
 model Admission {
-  id            String           @id @default(uuid())
-  applicantId   String
-  courseId      String
-  departmentId  String
-  preferredBatchId String?
+  id           String          @id @default(uuid())
+  email        String
+  courseId     String
+  departmentId String
+  formData     Json
+  documents    Json
+  status       AdmissionStatus
 
-  formData      Json
-  documents     Json
-  status        AdmissionStatus  @default(DRAFT)
+  course     Course     @relation(fields: [courseId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
 
-  applicant     User       @relation(fields: [applicantId], references: [id])
-  course        Course     @relation(fields: [courseId], references: [id])
-  department    Department @relation(fields: [departmentId], references: [id])
+  payments Payment[]
+  history  AdmissionHistory[]
 
-  payments      Payment[]
-  history       AdmissionHistory[]
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 model AdmissionHistory {
-  id           String @id @default(uuid())
-  admissionId  String
-  fromStatus   AdmissionStatus
-  toStatus     AdmissionStatus
-  changedById  String
-  reason       String?
-  changedAt    DateTime @default(now())
+  id          String          @id @default(uuid())
+  admissionId String
+  fromStatus  AdmissionStatus
+  toStatus    AdmissionStatus
+  changedById String
 
-  admission    Admission @relation(fields: [admissionId], references: [id])
-  changedBy    User      @relation(fields: [changedById], references: [id])
+  admission Admission @relation(fields: [admissionId], references: [id])
+  changedBy User      @relation(fields: [changedById], references: [id])
 }
 
 ////////////////////
@@ -244,85 +278,43 @@ model AdmissionHistory {
 ////////////////////
 
 model Payment {
-  id           String        @id @default(uuid())
-  studentId    String?
-  admissionId  String?
-  amount       Decimal
-  currency     String
-  gateway      String
-  gatewayRef   String?
-  status       PaymentStatus
-  meta         Json?
-  createdAt    DateTime      @default(now())
+  id          String        @id @default(uuid())
+  studentId   String?
+  admissionId String?
+  amount      Decimal
+  status      PaymentStatus
+  gateway     String
+  txnId       String
+  receiptUrl  String
+  createdAt   DateTime      @default(now())
 
-  student      StudentProfile? @relation(fields: [studentId], references: [id])
-  admission    Admission?      @relation(fields: [admissionId], references: [id])
-  invoice      Invoice?
-}
-
-model Invoice {
-  id        String   @id @default(uuid())
-  paymentId String  @unique
-  invoiceNo String  @unique
-  pdfUrl    String
-  amount    Decimal
-  issuedAt  DateTime @default(now())
-
-  payment  Payment @relation(fields: [paymentId], references: [id])
+  student   Student?   @relation(fields: [studentId], references: [id])
+  admission Admission? @relation(fields: [admissionId], references: [id])
 }
 
 ////////////////////
-/// ACADEMICS
+/// CERTIFICATES
 ////////////////////
 
-model Subject {
-  id        String @id @default(uuid())
-  code      String
-  name      String
-  credit    Int
-  courseId String
-
-  course    Course @relation(fields: [courseId], references: [id])
-  marks     Mark[]
-}
-
-model StudentEnrollment {
-  id        String   @id @default(uuid())
+model CertificateRequest {
+  id        String            @id @default(uuid())
   studentId String
-  courseId  String
-  batchId   String
-  semester  Int
-  status    String
-  startDate DateTime
-  endDate   DateTime?
+  type      CertificateType
+  purpose   String?
+  status    CertificateStatus @default(PENDING)
 
-  student   StudentProfile @relation(fields: [studentId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
 }
 
-model Mark {
-  id         String   @id @default(uuid())
-  studentId  String
-  subjectId  String
-  semester   Int
-  marks      Float
-  grade      String
-  createdAt  DateTime @default(now())
+////////////////////
+/// BLACKLISTED TOKENS
+////////////////////
 
-  student    StudentProfile @relation(fields: [studentId], references: [id])
-  subject    Subject        @relation(fields: [subjectId], references: [id])
-}
-
-model Clearance {
-  id          String   @id @default(uuid())
-  studentId   String
-  library     Boolean @default(false)
-  lab         Boolean @default(false)
-  hostel     Boolean @default(false)
-  fee         Boolean @default(false)
-  remarks     String?
-  updatedAt   DateTime @updatedAt
-
-  student     StudentProfile @relation(fields: [studentId], references: [id])
+model BlacklistedToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 ////////////////////
@@ -333,42 +325,19 @@ model GraduationRecord {
   id             String   @id @default(uuid())
   studentId      String   @unique
   completionDate DateTime
-  transcriptUrl  String?
-  clcUrl         String?
-  tcUrl          String?
-  marksheetUrl   String?
-  generatedAt    DateTime @default(now())
+  documents      Json
 
-  student        StudentProfile @relation(fields: [studentId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
 }
 
 model Alumni {
-  id         String   @id @default(uuid())
-  studentId  String   @unique
+  id         String  @id @default(uuid())
+  studentId  String  @unique
   occupation String?
   company    String?
   email      String?
-  joinedDate DateTime @default(now())
 
-  student    StudentProfile @relation(fields: [studentId], references: [id])
-}
-
-////////////////////
-/// CERTIFICATES
-////////////////////
-
-model CertificateRequest {
-  id          String            @id @default(uuid())
-  studentId   String
-  type        CertificateType
-  purpose     String?
-  documents   Json?
-  status      CertificateStatus @default(PENDING)
-  processedBy String?
-  requestedAt DateTime          @default(now())
-  processedAt DateTime?
-
-  student     StudentProfile @relation(fields: [studentId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
 }
 
 ////////////////////
@@ -378,64 +347,42 @@ model CertificateRequest {
 model Gallery {
   id        String   @id @default(uuid())
   title     String
-  description String?
   coverUrl  String?
   createdAt DateTime @default(now())
-  createdBy String
-
-  images    GalleryImage[]
-}
-
-model GalleryImage {
-  id        String @id @default(uuid())
-  galleryId String
-  imageUrl  String
-  caption   String?
-  order     Int
-
-  gallery   Gallery @relation(fields: [galleryId], references: [id])
 }
 
 model News {
-  id          String      @id @default(uuid())
+  id          String  @id @default(uuid())
   title       String
   body        String
-  scope       NoticeScope
-  isPublished Boolean     @default(false)
-  publishedAt DateTime?
-  createdBy   String
+  isPublished Boolean @default(false)
 }
 
 model Notice {
-  id        String      @id @default(uuid())
-  title     String
-  body      String
-  scope     NoticeScope
-  startAt   DateTime
-  endAt     DateTime
-  createdBy String
+  id    String      @id @default(uuid())
+  title String
+  body  String
+  scope NoticeScope
 }
 
 model Notification {
-  id        String              @id @default(uuid())
-  userId    String
-  channel   NotificationChannel
-  title     String
-  body      String
-  read      Boolean             @default(false)
-  sentAt    DateTime            @default(now())
+  id      String              @id @default(uuid())
+  userId  String
+  channel NotificationChannel
+  title   String
+  body    String
+  read    Boolean             @default(false)
 
-  user      User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String
-  action    String
-  entity    String
-  entityId  String
-  payload   Json?
-  createdAt DateTime @default(now())
+  id       String @id @default(uuid())
+  userId   String
+  action   String
+  entity   String
+  entityId String
+  payload  Json?
 
-  user      User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
