@@ -1,0 +1,145 @@
+{
+  "singleSession": {
+    "name": "2025-2028",
+    "startYear": 2025,
+    "endYear": 2028,
+    "courseId": "fe3c6fb6-d0ac-466b-850d-ccfdc9f93995"
+  },
+  "multipleSessions": [
+    {
+      "name": "2023-2026 Computer Science",
+      "startYear": 2023,
+      "endYear": 2026,
+      "courseId": "c9b5f3a1-2d4e-5f6a-7b8c-9d0e1f2a3b4c"
+    },
+    {
+      "name": "2024-2027 Business Admin",
+      "startYear": 2024,
+      "endYear": 2027,
+      "courseId": "a1b2c3d4-5e6f-7g8h-9i0j-klmnopqrstuv"
+    },
+    {
+      "name": "2023-2025 MBA",
+      "startYear": 2023,
+      "endYear": 2025,
+      "courseId": "x9y8z7w6-5v4u-3t2s-1r0q-ponmlkjihgfe"
+    },
+    {
+      "name": "2024-2028 Engineering",
+      "startYear": 2024,
+      "endYear": 2028,
+      "courseId": "m5n4o3p2-1q0r-9s8t-7u6v-wxyzabc12345"
+    },
+    {
+      "name": "2025-2027 Arts",
+      "startYear": 2025,
+      "endYear": 2027,
+      "courseId": "f1e2d3c4-b5a6-7890-1234-567890abcdef"
+    }
+  ],
+  "apiUsage": {
+    "createSession": {
+      "endpoint": "POST /api/v1/sessions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer <your-jwt-token>"
+      },
+      "body": {
+        "name": "2025-2028",
+        "startYear": 2025,
+        "endYear": 2028,
+        "courseId": "valid-course-uuid-here"
+      }
+    },
+    "updateSession": {
+      "endpoint": "PATCH /api/v1/sessions/{sessionId}",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer <your-jwt-token>"
+      },
+      "body": {
+        "name": "Updated Session Name (Optional)",
+        "startYear": 2025,
+        "endYear": 2028,
+        "courseId": "valid-course-uuid-here"
+      }
+    },
+    "getSession": {
+      "endpoint": "GET /api/v1/sessions/{sessionId}",
+      "headers": {
+        "Authorization": "Bearer <your-jwt-token>"
+      }
+    },
+    "getAllSessions": {
+      "endpoint": "GET /api/v1/sessions",
+      "headers": {
+        "Authorization": "Bearer <your-jwt-token>"
+      },
+      "queryParameters": {
+        "courseId": "Filter by course ID (optional)",
+        "search": "Search by session name (optional)"
+      }
+    }
+  },
+  "validationRules": {
+    "name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 100,
+      "required": true
+    },
+    "startYear": {
+      "type": "number",
+      "integer": true,
+      "min": 1900,
+      "max": 2100,
+      "required": true
+    },
+    "endYear": {
+      "type": "number",
+      "integer": true,
+      "min": 1900,
+      "max": 2100,
+      "required": true,
+      "mustBeGreaterThanStartYear": true
+    },
+    "courseId": {
+      "type": "string",
+      "format": "UUID",
+      "required": true
+    }
+  },
+  "postmanCollection": {
+    "info": {
+      "name": "Session Management API",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+      {
+        "name": "Create Session",
+        "request": {
+          "method": "POST",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Authorization",
+              "value": "Bearer {{token}}"
+            }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"name\": \"2025-2028\",\n  \"startYear\": 2025,\n  \"endYear\": 2028,\n  \"courseId\": \"{{courseId}}\"\n}"
+          },
+          "url": {
+            "raw": "{{baseUrl}}/sessions",
+            "host": ["{{baseUrl}}"],
+            "path": ["sessions"]
+          }
+        }
+      }
+    ]
+  }
+}
