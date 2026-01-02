@@ -29,6 +29,6 @@ router.patch('/:id', restrictTo('ADMIN'), joiValidator(updateCourse, "body"), up
 router.delete('/:id', restrictTo('ADMIN'), deleteCourse);
 
 // Semester Creation Route
-router.post('/:id/semesters', restrictTo('ADMIN'), createSemesters);
+router.post('/semesters/:id', restrictTo('ADMIN'), createSemesters);
 
 module.exports = router;
