@@ -18,7 +18,11 @@ const {
   getSession,
   updateSession: updateSessionController,
   deleteSession,
-  getSessionsByCourse
+  getSessionsByCourse,
+  associateSessionWithCourse,
+  removeSessionCourseAssociation,
+  getSessionsForCourse,
+  getCoursesForSession
 } = require('../controllers/session.controller');
 
 // All routes below this middleware require authentication
@@ -33,5 +37,11 @@ router.delete('/:id', restrictTo('ADMIN','HOD'), deleteSession);
 
 // Course-specific routes
 router.get('/course/:courseId', restrictTo('ADMIN', 'HOD'), getSessionsByCourse);
+
+// Session-Course association routes
+router.post('/associate', restrictTo('ADMIN', 'HOD'), associateSessionWithCourse);
+router.delete('/associate/:sessionId/:courseId', restrictTo('ADMIN', 'HOD'), removeSessionCourseAssociation);
+router.get('/course/:courseId/sessions', restrictTo('ADMIN', 'HOD'), getSessionsForCourse);
+router.get('/session/:sessionId/courses', restrictTo('ADMIN', 'HOD'), getCoursesForSession);
 
 module.exports = router;

@@ -6,16 +6,7 @@ const AppError = require('../utils/error');
  */
 exports.createSession = async (req, res, next) => {
   try {
-    const { name, startYear, endYear, courseId } = req.body;
-
-    // Validate course exists
-    const course = await prisma.course.findUnique({
-      where: { id: courseId }
-    });
-
-    if (!course) {
-      return next(new AppError('Course not found', 404));
-    }
+    const { name, startYear, endYear } = req.body;
 
     // Check if session name already exists
     const existingSession = await prisma.session.findFirst({
@@ -26,38 +17,73 @@ exports.createSession = async (req, res, next) => {
       return next(new AppError('Session with this name already exists', 409));
     }
 
-    // Check if the year range already exists for this course
-    const existingYearRange = await prisma.session.findFirst({
-      where: {
-        courseId,
-        startYear,
-        endYear
-      }
-    });
-
-    if (existingYearRange) {
-      return next(new AppError('A session with this year range already exists for this course', 409));
-    }
-
     // Create session
     const session = await prisma.session.create({
       data: {
         name,
         startYear,
-        endYear,
-        courseId
-      },
-      include: {
-        course: {
-          select: {
-            id: true,
-            name: true,
-            code: true
-          }
-        }
+        endYear
       }
     });
 
+    // If courseId is provided, create the association
+    if (courseId) {
+      // Validate course exists
+      const course = await prisma.course.findUnique({
+        where: { id: courseId }
+      });
+
+      if (!course) {
+        return next(new AppError('Course not found', 404));
+      }
+      
+      // Create the association between session and course
+      await prisma.courseSession.create({
+        data: {
+          sessionId: session.id,
+          courseId: courseId
+        }
+      });
+      
+      // Fetch the session with course data for response
+      const sessionWithCourse = await prisma.session.findUnique({
+        where: { id: session.id },
+        include: {
+          courses: {
+            include: {
+              course: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      // Log audit entry
+      await prisma.auditLog.create({
+        data: {
+          userId: req.user.id,
+          action: 'CREATE_SESSION',
+          entity: 'Session',
+          entityId: session.id,
+          payload: JSON.stringify({ name, startYear, endYear, courseId })
+        }
+      });
+      
+      res.status(201).json({
+        status: 'success',
+        message: 'Session created successfully',
+        data: {
+          session: sessionWithCourse
+        }
+      });
+      return;
+    }
+    
     // Log audit entry
     await prisma.auditLog.create({
       data: {
@@ -65,7 +91,7 @@ exports.createSession = async (req, res, next) => {
         action: 'CREATE_SESSION',
         entity: 'Session',
         entityId: session.id,
-        payload: JSON.stringify({ name, startYear, endYear, courseId })
+        payload: JSON.stringify({ name, startYear, endYear })
       }
     });
 
@@ -106,7 +132,13 @@ exports.getAllSessions = async (req, res, next) => {
     let whereClause = {};
     
     if (courseId) {
-      whereClause.courseId = courseId;
+      whereClause = {
+        courses: {
+          some: {
+            courseId: courseId
+          }
+        }
+      };
     }
 
     if (search) {
@@ -119,11 +151,15 @@ exports.getAllSessions = async (req, res, next) => {
     const sessions = await prisma.session.findMany({
       where: whereClause,
       include: {
-        course: {
-          select: {
-            id: true,
-            name: true,
-            code: true
+        courses: {
+          include: {
+            course: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
           }
         },
         students: {
@@ -174,11 +210,15 @@ exports.getSession = async (req, res, next) => {
     const session = await prisma.session.findUnique({
       where: { id },
       include: {
-        course: {
-          select: {
-            id: true,
-            name: true,
-            code: true
+        courses: {
+          include: {
+            course: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
           }
         },
         students: {
@@ -238,17 +278,6 @@ exports.updateSession = async (req, res, next) => {
       return next(new AppError('Session not found', 404));
     }
 
-    // Validate course exists if courseId is provided
-    if (courseId) {
-      const course = await prisma.course.findUnique({
-        where: { id: courseId }
-      });
-
-      if (!course) {
-        return next(new AppError('Course not found', 404));
-      }
-    }
-
     // Check if session name already exists (excluding current session)
     if (name && name !== session.name) {
       const existingSession = await prisma.session.findFirst({
@@ -260,45 +289,85 @@ exports.updateSession = async (req, res, next) => {
       }
     }
 
-    // Check if the year range already exists for this course (excluding current session)
-    if ((startYear !== undefined && startYear !== session.startYear) || 
-        (endYear !== undefined && endYear !== session.endYear) || 
-        (courseId && courseId !== session.courseId)) {
-      const existingYearRange = await prisma.session.findFirst({
-        where: {
-          courseId: courseId || session.courseId,
-          startYear: startYear !== undefined ? startYear : session.startYear,
-          endYear: endYear !== undefined ? endYear : session.endYear,
-          id: {
-            not: id
-          }
-        }
-      });
-
-      if (existingYearRange) {
-        return next(new AppError('A session with this year range already exists for this course', 409));
-      }
-    }
-
     // Update session
     const updatedSession = await prisma.session.update({
       where: { id },
       data: {
         name: name || session.name,
         startYear: startYear !== undefined ? startYear : session.startYear,
-        endYear: endYear !== undefined ? endYear : session.endYear,
-        courseId: courseId || session.courseId
-      },
-      include: {
-        course: {
-          select: {
-            id: true,
-            name: true,
-            code: true
-          }
-        }
+        endYear: endYear !== undefined ? endYear : session.endYear
       }
     });
+    
+    // If courseId is provided, update the association
+    if (courseId) {
+      // Validate course exists
+      const course = await prisma.course.findUnique({
+        where: { id: courseId }
+      });
+
+      if (!course) {
+        return next(new AppError('Course not found', 404));
+      }
+      
+      // Check if association already exists
+      const existingAssociation = await prisma.courseSession.findUnique({
+        where: {
+          courseId_sessionId: {
+            courseId,
+            sessionId: id
+          }
+        }
+      });
+      
+      if (!existingAssociation) {
+        // Create the association between session and course
+        await prisma.courseSession.create({
+          data: {
+            sessionId: id,
+            courseId: courseId
+          }
+        });
+      }
+      
+      // Fetch the session with course data for response
+      const sessionWithCourse = await prisma.session.findUnique({
+        where: { id: updatedSession.id },
+        include: {
+          courses: {
+            include: {
+              course: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      // Log audit entry
+      await prisma.auditLog.create({
+        data: {
+          userId: req.user.id,
+          action: 'UPDATE_SESSION',
+          entity: 'Session',
+          entityId: id,
+          payload: JSON.stringify({ name, startYear, endYear, courseId })
+        }
+      });
+      
+      res.status(200).json({
+        status: 'success',
+        message: 'Session updated successfully',
+        data: {
+          session: sessionWithCourse
+        }
+      });
+      return;
+    }
 
     // Log audit entry
     await prisma.auditLog.create({
@@ -369,6 +438,13 @@ exports.deleteSession = async (req, res, next) => {
       return next(new AppError('Cannot delete session with students assigned to it', 400));
     }
 
+    // Delete all CourseSession associations first
+    await prisma.courseSession.deleteMany({
+      where: {
+        sessionId: id
+      }
+    });
+
     // Delete session
     await prisma.session.delete({
       where: { id }
@@ -424,14 +500,22 @@ exports.getSessionsByCourse = async (req, res, next) => {
 
     const sessions = await prisma.session.findMany({
       where: {
-        courseId
+        courses: {
+          some: {
+            courseId: courseId
+          }
+        }
       },
       include: {
-        course: {
-          select: {
-            id: true,
-            name: true,
-            code: true
+        courses: {
+          include: {
+            course: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
           }
         },
         students: {
@@ -468,6 +552,256 @@ exports.getSessionsByCourse = async (req, res, next) => {
       return next(new AppError('Failed to retrieve sessions', 400));
     }
     
+    next(error);
+  }
+};
+
+/**
+ * Associate a session with a course
+ */
+exports.associateSessionWithCourse = async (req, res, next) => {
+  try {
+    const { sessionId, courseId } = req.body;
+
+    // Validate session exists
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId }
+    });
+
+    if (!session) {
+      return next(new AppError('Session not found', 404));
+    }
+
+    // Validate course exists
+    const course = await prisma.course.findUnique({
+      where: { id: courseId }
+    });
+
+    if (!course) {
+      return next(new AppError('Course not found', 404));
+    }
+
+    // Check if association already exists
+    const existingAssociation = await prisma.courseSession.findUnique({
+      where: {
+        courseId_sessionId: {
+          courseId,
+          sessionId
+        }
+      }
+    });
+
+    if (existingAssociation) {
+      return next(new AppError('Session is already associated with this course', 409));
+    }
+
+    // Create the association between session and course
+    const courseSession = await prisma.courseSession.create({
+      data: {
+        sessionId,
+        courseId
+      },
+      include: {
+        course: {
+          select: {
+            id: true,
+            name: true,
+            code: true
+          }
+        },
+        session: {
+          select: {
+            id: true,
+            name: true,
+            startYear: true,
+            endYear: true
+          }
+        }
+      }
+    });
+
+    // Log audit entry
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.id,
+        action: 'ASSOCIATE_SESSION_WITH_COURSE',
+        entity: 'CourseSession',
+        entityId: courseSession.id,
+        payload: JSON.stringify({ sessionId, courseId })
+      }
+    });
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Session associated with course successfully',
+      data: {
+        courseSession
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Remove association between a session and a course
+ */
+exports.removeSessionCourseAssociation = async (req, res, next) => {
+  try {
+    const { sessionId, courseId } = req.params;
+
+    // Check if association exists
+    const association = await prisma.courseSession.findUnique({
+      where: {
+        courseId_sessionId: {
+          courseId,
+          sessionId
+        }
+      }
+    });
+
+    if (!association) {
+      return next(new AppError('Session is not associated with this course', 404));
+    }
+
+    // Delete the association
+    await prisma.courseSession.delete({
+      where: {
+        courseId_sessionId: {
+          courseId,
+          sessionId
+        }
+      }
+    });
+
+    // Log audit entry
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.id,
+        action: 'REMOVE_SESSION_COURSE_ASSOCIATION',
+        entity: 'CourseSession',
+        entityId: association.id,
+        payload: JSON.stringify({ sessionId, courseId })
+      }
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Session course association removed successfully'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get all sessions associated with a course
+ */
+exports.getSessionsForCourse = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+
+    // Validate course exists
+    const course = await prisma.course.findUnique({
+      where: { id: courseId }
+    });
+
+    if (!course) {
+      return next(new AppError('Course not found', 404));
+    }
+
+    const courseSessions = await prisma.courseSession.findMany({
+      where: {
+        courseId
+      },
+      include: {
+        session: {
+          include: {
+            students: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                reg_no: true
+              },
+              take: 10 // Limit to first 10 students for performance
+            }
+          }
+        }
+      },
+      orderBy: {
+        session: {
+          startYear: 'desc'
+        }
+      }
+    });
+
+    res.status(200).json({
+      status: 'success',
+      results: courseSessions.length,
+      data: {
+        courseSessions
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get all courses associated with a session
+ */
+exports.getCoursesForSession = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    // Validate session exists
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId }
+    });
+
+    if (!session) {
+      return next(new AppError('Session not found', 404));
+    }
+
+    const courseSessions = await prisma.courseSession.findMany({
+      where: {
+        sessionId
+      },
+      include: {
+        course: {
+          include: {
+            students: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                reg_no: true
+              },
+              take: 10 // Limit to first 10 students for performance
+            }
+          }
+        }
+      },
+      orderBy: {
+        course: {
+          name: 'asc'
+        }
+      }
+    });
+
+    res.status(200).json({
+      status: 'success',
+      results: courseSessions.length,
+      data: {
+        courseSessions
+      }
+    });
+
+  } catch (error) {
     next(error);
   }
 };
