@@ -18,8 +18,8 @@ const createUser = Joi.object({
   phone: Joi.string().pattern(/^[0-9]{10,15}$/).optional().messages({
     'string.pattern.base': 'Phone number must be between 10-15 digits'
   }),
-  role: Joi.string().valid('HOD','ACCOUNTANT', 'STAFF').required().messages({
-    'any.only': 'Role must be either HOD or STAFF',
+  role: Joi.string().valid('HOD','ACCOUNTANT', 'ACCOUNTANT').required().messages({
+    'any.only': 'Role must be either HOD or ACCOUNTANT',
     'any.required': 'Role is required'
   })
 });
