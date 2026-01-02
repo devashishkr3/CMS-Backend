@@ -70,7 +70,7 @@ exports.protect = async (req, res, next) => {
 
 /**
  * RestrictTo middleware to control access based on user roles
- * @param  {...any} roles - Allowed roles (ADMIN, HOD, STAFF)
+ * @param  {...any} roles - Allowed roles (ADMIN, HOD, ACCOUNTANT)
  */
 exports.restrictTo = (...roles) => {
   return (req, res, next) => {

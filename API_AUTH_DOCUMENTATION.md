@@ -15,7 +15,7 @@ This document describes the authentication endpoints for the CMS Backend. The sy
   "email": "string (required, valid email format)",
   "password": "string (required, minimum 6 characters)",
   "phone": "string (optional, exactly 10 digits)",
-  "role": "string (optional, one of: ADMIN, HOD, STAFF - defaults to STAFF)"
+  "role": "string (optional, one of: ADMIN, HOD, ACCOUNTANT - defaults to ADMIN)"
 }
 ```
 

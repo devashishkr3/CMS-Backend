@@ -18,7 +18,7 @@ const registerUser = Joi.object({
   phone: Joi.string().pattern(/^[0-9]{10}$/).optional().messages({
     'string.pattern.base': 'Phone number must be exactly 10 digits'
   }),
-  role: Joi.string().valid('ADMIN', 'HOD', 'STAFF').default('ADMIN').optional(),
+  role: Joi.string().valid('ADMIN', 'HOD', 'ACCOUNTANT').default('ADMIN').optional(),
   accessPassword: Joi.string().required().messages({
     'any.required': 'access password is mandatory',
   })
