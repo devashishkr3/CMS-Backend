@@ -3,6 +3,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const helmet = require("helmet");
 const { default: rateLimit } = require("express-rate-limit");
+const logger = require("./utils/logger");
 
 // Load Environment Variables
 require("dotenv").config();
@@ -51,7 +52,7 @@ app.use(
 app.get("/", (req, res) => {
   return res.json({
     status: "success",
-    message: "Welcome to School Management System",
+    message: "Welcome to College Management System",
     version: "1.0.0",
     health: "/health",
     uptime: process.uptime(),
@@ -75,6 +76,23 @@ app.use((req, res, next) => {
 // Error Handler
 app.use(ErrorHandler);
 
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    logger.info('Process terminated');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  server.close(() => {
+    logger.info('Process terminated');
+    process.exit(0);
+  });
+});
+
 // PORT
 const PORT = process.env.PORT || 5000;
 
@@ -82,6 +100,21 @@ const PORT = process.env.PORT || 5000;
 // startTokenCleanup();
 
 // Traditional Server
-app.listen(PORT, () =>{
-    console.log(`Server is Running on PORT ${PORT}`);
-})
+const server = app.listen(PORT, () => {
+  logger.info(`Server is Running on PORT ${PORT}`);
+  console.log(`Server is Running on PORT ${PORT}`);
+});
+
+// Handle unhandled promise rejections
+// process.on('unhandledRejection', (err) => {
+//   logger.error('Unhandled Rejection! Shutting down...', { error: err.message, stack: err.stack });
+//   server.close(() => {
+//     process.exit(1);
+//   });
+// });
+
+// // Handle uncaught exceptions
+// process.on('uncaughtException', (err) => {
+//   logger.error('Uncaught Exception! Shutting down...', { error: err.message, stack: err.stack });
+//   process.exit(1);
+// });
