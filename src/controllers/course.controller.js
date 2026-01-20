@@ -6,17 +6,109 @@ const { createCourse, updateCourse } = require('../validation/course.validation'
  * Create a new course
  * Access: ADMIN
  */
+// exports.createCourse = async (req, res, next) => {
+//   try {
+//     // Validate request body
+//     const { error, value } = createCourse.validate(req.body);
+//     if (error) {
+//       return next(new AppError(error.details.map(d => d.message).join(', '), 400));
+//     }
+
+//     const { name, code, durationYears, departmentId } = value;
+
+//     // Check if department exists
+//     const department = await prisma.department.findUnique({
+//       where: { id: departmentId }
+//     });
+
+//     if (!department) {
+//       return next(new AppError('Department not found', 404));
+//     }
+
+//     // Check if course with this name already exists
+//     const existingCourse = await prisma.course.findFirst({
+//       where: { name }
+//     });
+
+//     if (existingCourse) {
+//       return next(new AppError('Course with this name already exists', 400));
+//     }
+
+//     // Check if course with this code already exists
+//     const existingCourseByCode = await prisma.course.findFirst({
+//       where: { code }
+//     });
+
+//     if (existingCourseByCode) {
+//       return next(new AppError('Course with this code already exists', 400));
+//     }
+
+//     // Create course
+//     const course = await prisma.course.create({
+//       data: {
+//         name,
+//         code,
+//         durationYears,
+//         departmentId
+//       },
+//       include: {
+//         department: {
+//           select: {
+//             id: true,
+//             name: true,
+//             code: true
+//           }
+//         }
+//       }
+//     });
+
+//     // Log audit entry
+//     await prisma.auditLog.create({
+//       data: {
+//         userId: req.user.id,
+//         action: 'CREATE_COURSE',
+//         entity: 'Course',
+//         entityId: course.id,
+//         payload: JSON.stringify({ name, code, durationYears, departmentId })
+//       }
+//     });
+
+//     res.status(201).json({
+//       status: 'success',
+//       message: 'Course created successfully',
+//       data: {
+//         course
+//       }
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+/**
+ * Create a new course
+ * Access: ADMIN
+ */
 exports.createCourse = async (req, res, next) => {
   try {
-    // Validate request body
+    // 1️⃣ Validate request body
     const { error, value } = createCourse.validate(req.body);
     if (error) {
-      return next(new AppError(error.details.map(d => d.message).join(', '), 400));
+      return next(
+        new AppError(error.details.map(d => d.message).join(', '), 400)
+      );
     }
 
-    const { name, code, durationYears, departmentId } = value;
+    const {
+      name,
+      code,
+      durationYears,
+      departmentId,
+      sessionId
+    } = value;
+    // console.log(value);
 
-    // Check if department exists
+    // 2️⃣ Validate department
     const department = await prisma.department.findUnique({
       where: { id: departmentId }
     });
@@ -25,65 +117,117 @@ exports.createCourse = async (req, res, next) => {
       return next(new AppError('Department not found', 404));
     }
 
-    // Check if course with this name already exists
+    // 3️⃣ Validate session
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId }
+    });
+
+    if (!session) {
+      return next(new AppError('Session not found', 404));
+    }
+
+    // 4️⃣ Course uniqueness
     const existingCourse = await prisma.course.findFirst({
-      where: { name }
-    });
-
-    if (existingCourse) {
-      return next(new AppError('Course with this name already exists', 400));
-    }
-
-    // Check if course with this code already exists
-    const existingCourseByCode = await prisma.course.findFirst({
-      where: { code }
-    });
-
-    if (existingCourseByCode) {
-      return next(new AppError('Course with this code already exists', 400));
-    }
-
-    // Create course
-    const course = await prisma.course.create({
-      data: {
-        name,
-        code,
-        durationYears,
-        departmentId
-      },
-      include: {
-        department: {
-          select: {
-            id: true,
-            name: true,
-            code: true
-          }
-        }
+      where: {
+        OR: [{ name }, { code }]
       }
     });
 
-    // Log audit entry
-    await prisma.auditLog.create({
-      data: {
-        userId: req.user.id,
-        action: 'CREATE_COURSE',
-        entity: 'Course',
-        entityId: course.id,
-        payload: JSON.stringify({ name, code, durationYears, departmentId })
+    if (existingCourse) {
+      return next(
+        new AppError(
+          existingCourse.name === name
+            ? 'Course with this name already exists'
+            : 'Course with this code already exists',
+          400
+        )
+      );
+    }
+
+    // 5️⃣ Transaction (COURSE + COURSE_SESSION + SEMESTERS)
+    const course = await prisma.$transaction(async (tx) => {
+      // Create course
+      const createdCourse = await tx.course.create({
+        data: {
+          name,
+          code,
+          durationYears,
+          departmentId
+        }
+      });
+
+      // Link course to session
+      await tx.courseSession.create({
+        data: {
+          courseId: createdCourse.id,
+          sessionId
+        }
+      });
+
+      // Auto-create semesters
+      const totalSemesters = durationYears * 2;
+
+      const semesters = Array.from({ length: totalSemesters }, (_, i) => ({
+        number: i + 1,
+        courseId: createdCourse.id
+      }));
+
+      await tx.semester.createMany({ data: semesters });
+
+      // Audit log
+      await tx.auditLog.create({
+        data: {
+          userId: req.user.id,
+          action: 'CREATE_COURSE_WITH_SESSION_AND_SEMESTERS',
+          entity: 'Course',
+          entityId: createdCourse.id,
+          payload: {
+            name,
+            code,
+            durationYears,
+            departmentId,
+            sessionId,
+            totalSemesters
+          }
+        }
+      });
+
+      return createdCourse;
+    });
+
+    // 6️⃣ Final response
+    const fullCourse = await prisma.course.findUnique({
+      where: { id: course.id },
+      include: {
+        department: {
+          select: { id: true, name: true, code: true }
+        },
+        sessions: {
+          include: {
+            session: {
+              select: { id: true, name: true }
+            }
+          }
+        },
+        semesters: {
+          select: { id: true, number: true },
+          orderBy: { number: 'asc' }
+        }
       }
     });
 
     res.status(201).json({
       status: 'success',
-      message: 'Course created successfully',
+      message: 'Course created with session and semesters successfully',
       data: {
-        course
+        course: fullCourse
       }
     });
   } catch (error) {
     next(error);
   }
 };
+
 
 /**
  * Get all courses with filtering options

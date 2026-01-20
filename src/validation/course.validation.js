@@ -20,6 +20,10 @@ const createCourse = Joi.object({
   departmentId: Joi.string().uuid().required().messages({
     'string.uuid': 'Department ID must be a valid UUID',
     'any.required': 'Department ID is required'
+  }),
+    sessionId: Joi.string().uuid().required().messages({
+    'string.uuid': 'Session ID must be a valid UUID',
+    'any.required': 'Session ID is required'
   })
 });
 
