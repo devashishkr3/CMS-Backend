@@ -21,9 +21,9 @@ const createSession = Joi.object({
     'number.max': 'End year must not exceed 2100',
     'any.required': 'End year is required'
   }),
-  courseId: Joi.string().uuid().required().messages({
-    'string.uuid': 'Course ID must be a valid UUID',
-    'any.required': 'Course ID is required'
+  courseId: Joi.string().uuid().optional().messages({
+    'string.uuid': 'Course ID must be a valid UUID'
+    // 'any.required': 'Course ID is required'
   })
 }).custom((value, helpers) => {
   if (value.startYear >= value.endYear) {

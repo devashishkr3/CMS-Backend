@@ -4,86 +4,109 @@ const AppError = require('../utils/error');
 /**
  * Create a new session
  */
+// exports.createSession = async (req, res, next) => {
+//   try {
+//     const { name, startYear, endYear } = req.body;
+
+//     // Check if session name already exists
+//     const existingSession = await prisma.session.findFirst({
+//       where: { name }
+//     });
+
+//     if (existingSession) {
+//       return next(new AppError('Session with this name already exists', 409));
+//     }
+
+//     // Create session
+//     const session = await prisma.session.create({
+//       data: {
+//         name,
+//         startYear,
+//         endYear
+//       }
+//     });
+
+//     // If courseId is provided, create the association
+//     if (courseId) {
+//       // Validate course exists
+//       const course = await prisma.course.findUnique({
+//         where: { id: courseId }
+//       });
+
+//       if (!course) {
+//         return next(new AppError('Course not found', 404));
+//       }
+      
+//       // Create the association between session and course
+//       await prisma.courseSession.create({
+//         data: {
+//           sessionId: session.id,
+//           courseId: courseId
+//         }
+//       });
+      
+//       // Fetch the session with course data for response
+//       const sessionWithCourse = await prisma.session.findUnique({
+//         where: { id: session.id },
+//         include: {
+//           courses: {
+//             include: {
+//               course: {
+//                 select: {
+//                   id: true,
+//                   name: true,
+//                   code: true
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       });
+      
+//       // Log audit entry
+//       await prisma.auditLog.create({
+//         data: {
+//           userId: req.user.id,
+//           action: 'CREATE_SESSION',
+//           entity: 'Session',
+//           entityId: session.id,
+//           payload: JSON.stringify({ name, startYear, endYear, courseId })
+//         }
+//       });
+      
+//       res.status(201).json({
+//         status: 'success',
+//         message: 'Session created successfully',
+//         data: {
+//           session: sessionWithCourse
+//         }
+//       });
+//       return;
+//     }
+
 exports.createSession = async (req, res, next) => {
   try {
     const { name, startYear, endYear } = req.body;
 
-    // Check if session name already exists
-    const existingSession = await prisma.session.findFirst({
-      where: { name }
-    });
-
-    if (existingSession) {
-      return next(new AppError('Session with this name already exists', 409));
+    const exists = await prisma.session.findFirst({ where: { name } });
+    if (exists) {
+      return next(new AppError('Session already exists', 409));
     }
 
-    // Create session
     const session = await prisma.session.create({
+      data: { name, startYear, endYear }
+    });
+
+    await prisma.auditLog.create({
       data: {
-        name,
-        startYear,
-        endYear
+        userId: req.user.id,
+        action: 'CREATE_SESSION',
+        entity: 'Session',
+        entityId: session.id,
+        payload: { name, startYear, endYear }
       }
     });
 
-    // If courseId is provided, create the association
-    if (courseId) {
-      // Validate course exists
-      const course = await prisma.course.findUnique({
-        where: { id: courseId }
-      });
-
-      if (!course) {
-        return next(new AppError('Course not found', 404));
-      }
-      
-      // Create the association between session and course
-      await prisma.courseSession.create({
-        data: {
-          sessionId: session.id,
-          courseId: courseId
-        }
-      });
-      
-      // Fetch the session with course data for response
-      const sessionWithCourse = await prisma.session.findUnique({
-        where: { id: session.id },
-        include: {
-          courses: {
-            include: {
-              course: {
-                select: {
-                  id: true,
-                  name: true,
-                  code: true
-                }
-              }
-            }
-          }
-        }
-      });
-      
-      // Log audit entry
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user.id,
-          action: 'CREATE_SESSION',
-          entity: 'Session',
-          entityId: session.id,
-          payload: JSON.stringify({ name, startYear, endYear, courseId })
-        }
-      });
-      
-      res.status(201).json({
-        status: 'success',
-        message: 'Session created successfully',
-        data: {
-          session: sessionWithCourse
-        }
-      });
-      return;
-    }
-    
     // Log audit entry
     await prisma.auditLog.create({
       data: {
@@ -805,3 +828,47 @@ exports.getCoursesForSession = async (req, res, next) => {
     next(error);
   }
 };
+
+// exports.assignSessionToCourses = async (req, res, next) => {
+//   try {
+//     const { sessionId, courseIds } = req.body;
+
+//     if (!Array.isArray(courseIds) || courseIds.length === 0) {
+//       return next(new AppError('courseIds must be a non-empty array', 400));
+//     }
+
+//     const session = await prisma.session.findUnique({ where: { id: sessionId } });
+//     if (!session) {
+//       return next(new AppError('Session not found', 404));
+//     }
+
+//     const data = courseIds.map(courseId => ({
+//       sessionId,
+//       courseId
+//     }));
+
+//     await prisma.courseSession.createMany({
+//       data,
+//       skipDuplicates: true
+//     });
+
+//     await prisma.auditLog.create({
+//       data: {
+//         userId: req.user.id,
+//         action: 'ASSIGN_SESSION_TO_COURSES',
+//         entity: 'Session',
+//         entityId: sessionId,
+//         payload: { courseIds }
+//       }
+//     });
+
+//     res.status(200).json({
+//       status: 'success',
+//       message: 'Session assigned to courses successfully'
+//     });
+
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
