@@ -4,126 +4,408 @@ const Joi = require('joi');
 const { logAudit } = require('../utils/auditLogger');
 const { createStudent, updateStudent, assignSemester } = require('../validation/student.validation');
 
-/**
- * Create a new student
- * Access: ADMIN, HOD
- */
+
 exports.createStudent = async (req, res, next) => {
   try {
-    // Validate request body
     const { error, value } = createStudent.validate(req.body);
     if (error) {
-      return next(new AppError(error.details.map(d => d.message).join(', '), 400));
+      return next(new AppError(error.details[0].message, 400));
     }
 
-    const { name, email, phone, dob, fatherName, gender, category, address, courseId, sessionId } = value;
+    const {
+      name,
+      email,
+      phone,
+      dob,
+      fatherName,
+      gender,
+      category,
+      address,
+      photoUrl,
+      departmentId,
+      courseId,
+      sessionId,
+      semesterId,
+      admissionType,
+      academicYear
+    } = value;
 
-    // Check if student with this email already exists
-    const existingStudentByEmail = await prisma.student.findUnique({
-      where: { email }
-    });
-
-    if (existingStudentByEmail) {
+    // 🔹 DUPLICATE EMAIL
+    const emailExists = await prisma.student.findUnique({ where: { email } });
+    if (emailExists) {
       return next(new AppError('Student with this email already exists', 400));
     }
 
+    // 🔹 DEPARTMENT
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId }
+    });
+    if (!department) {
+      return next(new AppError('Department not found', 404));
+    }
 
-
-    // Check if course exists
+    // 🔹 COURSE
     const course = await prisma.course.findUnique({
       where: { id: courseId }
     });
-
-    if (!course) {
-      return next(new AppError('Course not found', 404));
+    if (!course || course.departmentId !== departmentId) {
+      return next(new AppError('Invalid course for department', 400));
     }
 
-    // Check if session exists
+    // 🔹 SESSION
     const session = await prisma.session.findUnique({
       where: { id: sessionId }
     });
-
     if (!session) {
       return next(new AppError('Session not found', 404));
     }
 
-    // Check if session is associated with the course through CourseSession model
+    // 🔹 COURSE SESSION
     const courseSession = await prisma.courseSession.findUnique({
       where: {
-        courseId_sessionId: {
-          courseId,
-          sessionId
-        }
+        courseId_sessionId: { courseId, sessionId }
       }
     });
-    
     if (!courseSession) {
-      return next(new AppError('Session does not belong to the specified course', 400));
+      return next(new AppError('Course not available in selected session', 400));
     }
 
-    // Generate registration number (simplified - in real implementation this would be more complex)
-    const reg_no = `REG${Date.now()}${Math.floor(Math.random() * 1000)}`;
-    
-    // Generate UAN (University Acknowledgement Number) - simplified
-    const uan_no = `UAN${Date.now()}${Math.floor(Math.random() * 1000)}`;
-
-    // Create student
-    const student = await prisma.student.create({
-      data: {
-        reg_no,
-        email,
-        uan_no,
-        name,
-        phone,
-        dob: dob ? new Date(dob) : undefined,
-        fatherName,
-        gender,
-        category,
-        address,
-        courseId,
-        sessionId,
-        status: 'ACTIVE'
-      },
-      include: {
-        course: {
-          select: {
-            id: true,
-            code: true,
-            name: true
-          }
-        },
-        session: {
-          select: {
-            id: true,
-            name: true,
-            startYear: true,
-            endYear: true
-          }
-        }
-      }
+    // 🔹 SEMESTER
+    const semester = await prisma.semester.findUnique({
+      where: { id: semesterId }
     });
+    if (!semester || semester.courseId !== courseId) {
+      return next(new AppError('Invalid semester for selected course', 400));
+    }
 
-    // Log audit entry
-    await logAudit({
-      userId: req.user.id,
-      action: 'CREATE_STUDENT',
-      entity: 'Student',
-      entityId: student.id,
-      payload: { name, email, phone, courseId, sessionId },
-      req
+    // 🔹 REG & UAN
+    const reg_no = `REG${Date.now()}`;
+    const uan_no = `UAN${Date.now()}`;
+
+    // 🔹 TRANSACTION
+    const result = await prisma.$transaction(async (tx) => {
+
+      // STUDENT
+      const student = await tx.student.create({
+        data: {
+          reg_no,
+          uan_no,
+          name,
+          email,
+          phone,
+          dob: dob ? new Date(dob) : undefined,
+          fatherName,
+          gender,
+          category,
+          address,
+          photoUrl,
+          courseId,
+          sessionId,
+          status: 'ACTIVE'
+        }
+      });
+
+      // STUDENT SEMESTER
+      await tx.studentSemester.create({
+        data: {
+          studentId: student.id,
+          semesterId,
+          status: 'ONGOING',
+          feePaid: false,
+          startDate: new Date()
+        }
+      });
+
+      // ADMISSION
+      const admission = await tx.admission.create({
+        data: {
+          studentId: student.id,
+          courseId,
+          departmentId,
+          sessionId,
+          semesterId,
+          type: admissionType,
+          academicYear,
+          status: 'CONFIRMED'
+        }
+      });
+
+      // ADMISSION HISTORY
+      await tx.admissionHistory.create({
+        data: {
+          admissionId: admission.id,
+          fromStatus: 'INITIATED',
+          toStatus: 'CONFIRMED',
+          changedById: req.user.id
+        }
+      });
+
+      // AUDIT LOG
+      await logAudit({
+        userId: req.user.id,
+        action: 'CREATE_STUDENT_WITH_ADMISSION',
+        entity: 'Student',
+        entityId: student.id,
+        payload: {
+          courseId,
+          departmentId,
+          sessionId,
+          semesterId,
+          admissionType,
+          academicYear
+        },
+        req
+      });
+
+      return student;
     });
 
     res.status(201).json({
       status: 'success',
-      message: 'Student created successfully',
-      data: {
-        student
-      }
+      message: 'Student admitted successfully',
+      data: result
     });
-  } catch (error) {
-    next(error);
+
+  } catch (err) {
+    next(err);
   }
 };
+
+/**
+ * Create a new student
+ * Access: ADMIN, HOD
+ */
+// exports.createStudent = async (req, res, next) => {
+//   try {
+//     // Validate request body
+//     const { error, value } = createStudent.validate(req.body);
+//     if (error) {
+//       return next(new AppError(error.details.map(d => d.message).join(', '), 400));
+//     }
+
+//     const { name, email, phone, dob, fatherName, gender, category, address, courseId, sessionId } = value;
+
+//     // Check if student with this email already exists
+//     const existingStudentByEmail = await prisma.student.findUnique({
+//       where: { email }
+//     });
+
+//     if (existingStudentByEmail) {
+//       return next(new AppError('Student with this email already exists', 400));
+//     }
+
+
+
+//     // Check if course exists
+//     const course = await prisma.course.findUnique({
+//       where: { id: courseId }
+//     });
+
+//     if (!course) {
+//       return next(new AppError('Course not found', 404));
+//     }
+
+//     // Check if session exists
+//     const session = await prisma.session.findUnique({
+//       where: { id: sessionId }
+//     });
+
+//     if (!session) {
+//       return next(new AppError('Session not found', 404));
+//     }
+
+//     // Check if session is associated with the course through CourseSession model
+//     const courseSession = await prisma.courseSession.findUnique({
+//       where: {
+//         courseId_sessionId: {
+//           courseId,
+//           sessionId
+//         }
+//       }
+//     });
+    
+//     if (!courseSession) {
+//       return next(new AppError('Session does not belong to the specified course', 400));
+//     }
+
+//     // Generate registration number (simplified - in real implementation this would be more complex)
+//     const reg_no = `REG${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    
+//     // Generate UAN (University Acknowledgement Number) - simplified
+//     const uan_no = `UAN${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+//     // Create student
+//     const student = await prisma.student.create({
+//       data: {
+//         reg_no,
+//         email,
+//         uan_no,
+//         name,
+//         phone,
+//         dob: dob ? new Date(dob) : undefined,
+//         fatherName,
+//         gender,
+//         category,
+//         address,
+//         courseId,
+//         sessionId,
+//         status: 'ACTIVE'
+//       },
+//       include: {
+//         course: {
+//           select: {
+//             id: true,
+//             code: true,
+//             name: true
+//           }
+//         },
+//         session: {
+//           select: {
+//             id: true,
+//             name: true,
+//             startYear: true,
+//             endYear: true
+//           }
+//         }
+//       }
+//     });
+
+//     // Log audit entry
+//     await logAudit({
+//       userId: req.user.id,
+//       action: 'CREATE_STUDENT',
+//       entity: 'Student',
+//       entityId: student.id,
+//       payload: { name, email, phone, courseId, sessionId },
+//       req
+//     });
+
+//     res.status(201).json({
+//       status: 'success',
+//       message: 'Student created successfully',
+//       data: {
+//         student
+//       }
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+// exports.createStudent = async (req, res, next) => {
+//   try {
+//     const { error, value } = createStudent.validate(req.body);
+//     if (error) {
+//       return next(new AppError(error.message, 400));
+//     }
+
+//     const {
+//       name,
+//       email,
+//       phone,
+//       dob,
+//       fatherName,
+//       gender,
+//       category,
+//       address,
+//       courseId,
+//       departmentId,
+//       sessionId,
+//       semesterId,
+//       admissionType,
+//       academicYear,
+//       photoUrl
+//     } = value;
+
+//     // 🔹 Check duplicates
+//     const exists = await prisma.student.findUnique({ where: { email } });
+//     if (exists) {
+//       return next(new AppError('Student with this email already exists', 400));
+//     }
+
+//     // 🔹 Validate department → course → semester
+//     const semester = await prisma.semester.findUnique({
+//       where: { id: semesterId },
+//       include: { course: true }
+//     });
+
+//     if (!semester || semester.courseId !== courseId) {
+//       return next(new AppError('Invalid semester for selected course', 400));
+//     }
+
+//     // 🔹 Course-session mapping
+//     const courseSession = await prisma.courseSession.findUnique({
+//       where: {
+//         courseId_sessionId: { courseId, sessionId }
+//       }
+//     });
+
+//     if (!courseSession) {
+//       return next(new AppError('Course not available in selected session', 400));
+//     }
+
+//     const reg_no = `REG${Date.now()}`;
+//     const uan_no = `UAN${Date.now()}`;
+
+//     // 🔹 TRANSACTION (VERY IMPORTANT)
+//     const student = await prisma.$transaction(async (tx) => {
+
+//       const student = await tx.student.create({
+//         data: {
+//           reg_no,
+//           uan_no,
+//           name,
+//           email,
+//           phone,
+//           dob,
+//           fatherName,
+//           gender,
+//           category,
+//           address,
+//           photoUrl,
+//           courseId,
+//           sessionId
+//         }
+//       });
+
+//       // Assign semester manually
+//       await tx.studentSemester.create({
+//         data: {
+//           studentId: student.id,
+//           semesterId,
+//           status: 'ONGOING',
+//           startDate: new Date()
+//         }
+//       });
+
+//       // Create admission
+//       await tx.admission.create({
+//         data: {
+//           studentId: student.id,
+//           courseId,
+//           departmentId,
+//           sessionId,
+//           semesterId,
+//           type: admissionType,
+//           academicYear,
+//           status: 'CONFIRMED'
+//         }
+//       });
+
+//       return student;
+//     });
+
+//     res.status(201).json({
+//       status: 'success',
+//       message: 'Student created successfully',
+//       data: { student }
+//     });
+
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
 
 /**
  * Get all students with filtering options
@@ -703,3 +985,32 @@ exports.updateStudentSemesterStatus = async (req, res, next) => {
     next(error);
   }
 };
+
+// exports.bulkCreateStudents = async (req, res, next) => {
+//   try {
+//     const students = req.body.students; // array
+
+//     const BATCH_SIZE = 100;
+
+//     for (let i = 0; i < students.length; i += BATCH_SIZE) {
+//       const batch = students.slice(i, i + BATCH_SIZE);
+
+//       await prisma.$transaction(
+//         batch.map(s =>
+//           prisma.student.create({
+//             data: {
+//               ...s,
+//               reg_no: `REG${Date.now()}${Math.random()}`,
+//               uan_no: `UAN${Date.now()}${Math.random()}`
+//             }
+//           })
+//         )
+//       );
+//     }
+
+//     res.json({ status: 'success', message: 'Bulk import completed' });
+
+//   } catch (e) {
+//     next(e);
+//   }
+// };

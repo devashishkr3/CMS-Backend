@@ -31,6 +31,10 @@ const createStudent = Joi.object({
   address: Joi.string().max(500).optional().messages({
     'string.max': 'Address should not exceed 500 characters'
   }),
+  departmentId: Joi.string().uuid().required().messages({
+    'string.uuid': 'Department ID must be a valid UUID',
+    'any.required': 'Department ID is required'
+  }),
   courseId: Joi.string().uuid().required().messages({
     'string.uuid': 'Course ID must be a valid UUID',
     'any.required': 'Course ID is required'
@@ -38,7 +42,18 @@ const createStudent = Joi.object({
   sessionId: Joi.string().uuid().required().messages({
     'string.uuid': 'Session ID must be a valid UUID',
     'any.required': 'Session ID is required'
-  })
+  }),
+    semesterId: Joi.string().uuid().required().messages({
+    'string.uuid': 'Semester ID must be a valid UUID',
+    'any.required': 'Semester ID is required'
+  }),
+  admissionType: Joi.string().valid('NEW', 'CONTINUATION').required().messages({
+    'any.only': 'admission type must be one of NEW, CONTINUATION',
+    'any.required': 'Admission Type is Required',
+  }),
+  academicYear: Joi.string().pattern(/^\d{4}-\d{2}$/).required().messages({
+    'any.required': 'academic year must be in 2025-26 format'
+  }) // 2025-26
 });
 
 // Update student validation schema
@@ -98,3 +113,37 @@ module.exports = {
   updateStudent,
   assignSemester
 };
+
+
+// exports.createStudent = Joi.object({
+//   // BASIC INFO
+//   name: Joi.string().min(2).max(100).required(),
+//   email: Joi.string().email().required(),
+//   phone: Joi.string().pattern(/^[0-9]{10}$/).required(),
+
+//   dob: Joi.date().iso().optional(),
+//   fatherName: Joi.string().max(100).optional(),
+
+//   gender: Joi.string().valid('MALE', 'FEMALE', 'OTHER').optional(),
+//   category: Joi.string().valid(
+//     'GENERAL',
+//     'BC_I',
+//     'BC_II',
+//     'SC',
+//     'ST',
+//     'EWS'
+//   ).optional(),
+
+//   address: Joi.string().max(500).optional(),
+//   photoUrl: Joi.string().uri().optional(),
+
+//   // ACADEMIC
+//   departmentId: Joi.string().uuid().required(),
+//   courseId: Joi.string().uuid().required(),
+//   sessionId: Joi.string().uuid().required(),
+//   semesterId: Joi.string().uuid().required(),
+
+//   admissionType: Joi.string().valid('NEW', 'CONTINUATION').required(),
+//   academicYear: Joi.string().pattern(/^\d{4}-\d{2}$/).required() // 2025-26
+// });
+
