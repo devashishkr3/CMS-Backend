@@ -94,6 +94,11 @@ enum SubjectType {
   VAC
 }
 
+enum AdmissionType {
+  NEW
+  CONTINUATION
+}
+
 ////////////////////
 /// USERS (ADMIN / STAFF / HOD)
 ////////////////////
@@ -202,7 +207,7 @@ model Course {
   students        Student[]
   subjects        Subject[]
   semesters       Semester[]
-  admission       Admission[]
+  admissions      Admission[]
   admissionWindow AdmissionWindow[]
 }
 
@@ -246,8 +251,9 @@ model Session {
   startYear Int
   endYear   Int
 
-  courses  CourseSession[]
-  students Student[]
+  courses    CourseSession[]
+  students   Student[]
+  admissions Admission[]
 }
 
 model Semester {
@@ -259,6 +265,9 @@ model Semester {
   subjects         Subject[]
   studentSemesters StudentSemester[]
   StudentSubject   StudentSubject[]
+  admissions       Admission[]
+
+  @@unique([number, courseId])
 }
 
 model CourseSession {
@@ -305,12 +314,18 @@ model AdmissionWindow {
 }
 
 model Admission {
-  id           String  @id @default(uuid())
+  id String @id @default(uuid())
+
   studentId    String
   courseId     String
   departmentId String?
+  sessionId    String
 
-  meritListType  String? // MeritList_03 / 04 / 05
+  semesterId   String // FK
+  type         AdmissionType // NEW / CONTINUATION
+  academicYear String // "2025-26"
+
+  meritListType  String?
   profileNo      String?
   confidentialNo String?
   admissionNo    String?
@@ -320,11 +335,18 @@ model Admission {
   student    Student     @relation(fields: [studentId], references: [id])
   course     Course      @relation(fields: [courseId], references: [id])
   department Department? @relation(fields: [departmentId], references: [id])
+  session    Session     @relation(fields: [sessionId], references: [id])
+  semester   Semester    @relation(fields: [semesterId], references: [id])
 
   payments Payment[]
   history  AdmissionHistory[]
 
-  @@index([studentId, courseId])
+  @@unique([studentId, semesterId, academicYear]) // IMPORTANT
+  @@index([studentId])
+  @@index([courseId])
+  @@index([sessionId])
+  @@index([semesterId])
+  @@index([type, academicYear])
 }
 
 model AdmissionHistory {
