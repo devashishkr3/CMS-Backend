@@ -4,7 +4,10 @@ const Joi = require('joi');
 const { logAudit } = require('../utils/auditLogger');
 const { createStudent, updateStudent, assignSemester } = require('../validation/student.validation');
 
-
+/**
+ * Create New students and Add old Students also
+ * Access: ADMIN, HOD
+ */
 exports.createStudent = async (req, res, next) => {
   try {
     const { error, value } = createStudent.validate(req.body);
@@ -13,6 +16,10 @@ exports.createStudent = async (req, res, next) => {
     }
 
     const {
+      // STUDENT
+      reg_no,
+      uan_no,
+      class_roll,
       name,
       email,
       phone,
@@ -22,21 +29,40 @@ exports.createStudent = async (req, res, next) => {
       category,
       address,
       photoUrl,
+
+      // RELATIONS
       departmentId,
       courseId,
       sessionId,
       semesterId,
+
+      // ADMISSION
       admissionType,
-      academicYear
+      academicYear,
+      admissionNo,
+      confidentialNo,
+      meritListType,
+      profileNo
     } = value;
 
-    // 🔹 DUPLICATE EMAIL
+    // REQUIRED CHECK (uan_no)
+    if (!uan_no) {
+      return next(new AppError('uan_no is required', 400));
+    }
+
+    // DUPLICATE EMAIL
     const emailExists = await prisma.student.findUnique({ where: { email } });
     if (emailExists) {
       return next(new AppError('Student with this email already exists', 400));
     }
 
-    // 🔹 DEPARTMENT
+    // DUPLICATE UAN
+    const uanExists = await prisma.student.findUnique({ where: { uan_no } });
+    if (uanExists) {
+      return next(new AppError('Student with this UAN already exists', 400));
+    }
+
+    // DEPARTMENT
     const department = await prisma.department.findUnique({
       where: { id: departmentId }
     });
@@ -44,52 +70,44 @@ exports.createStudent = async (req, res, next) => {
       return next(new AppError('Department not found', 404));
     }
 
-    // 🔹 COURSE
-    const course = await prisma.course.findUnique({
-      where: { id: courseId }
-    });
+    // COURSE
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
     if (!course || course.departmentId !== departmentId) {
       return next(new AppError('Invalid course for department', 400));
     }
 
-    // 🔹 SESSION
-    const session = await prisma.session.findUnique({
-      where: { id: sessionId }
-    });
+    // SESSION
+    const session = await prisma.session.findUnique({ where: { id: sessionId } });
     if (!session) {
       return next(new AppError('Session not found', 404));
     }
 
-    // 🔹 COURSE SESSION
+    // COURSE SESSION
     const courseSession = await prisma.courseSession.findUnique({
-      where: {
-        courseId_sessionId: { courseId, sessionId }
-      }
+      where: { courseId_sessionId: { courseId, sessionId } }
     });
     if (!courseSession) {
       return next(new AppError('Course not available in selected session', 400));
     }
 
-    // 🔹 SEMESTER
-    const semester = await prisma.semester.findUnique({
-      where: { id: semesterId }
-    });
+    // SEMESTER
+    const semester = await prisma.semester.findUnique({ where: { id: semesterId } });
     if (!semester || semester.courseId !== courseId) {
       return next(new AppError('Invalid semester for selected course', 400));
     }
 
-    // 🔹 REG & UAN
-    const reg_no = `REG${Date.now()}`;
-    const uan_no = `UAN${Date.now()}`;
+    // AUTO CLASS ROLL (IF NOT PROVIDED)
+    const finalClassRoll =
+      class_roll || `${course.code}-${semester.number}-${Date.now()}`;
 
-    // 🔹 TRANSACTION
-    const result = await prisma.$transaction(async (tx) => {
+    // TRANSACTION
+    const student = await prisma.$transaction(async (tx) => {
 
-      // STUDENT
       const student = await tx.student.create({
         data: {
           reg_no,
           uan_no,
+          class_roll: finalClassRoll,
           name,
           email,
           phone,
@@ -105,7 +123,6 @@ exports.createStudent = async (req, res, next) => {
         }
       });
 
-      // STUDENT SEMESTER
       await tx.studentSemester.create({
         data: {
           studentId: student.id,
@@ -116,7 +133,6 @@ exports.createStudent = async (req, res, next) => {
         }
       });
 
-      // ADMISSION
       const admission = await tx.admission.create({
         data: {
           studentId: student.id,
@@ -126,11 +142,17 @@ exports.createStudent = async (req, res, next) => {
           semesterId,
           type: admissionType,
           academicYear,
+
+          // OPTIONAL FIELDS
+          admissionNo,
+          confidentialNo,
+          meritListType,
+          profileNo,
+
           status: 'CONFIRMED'
         }
       });
 
-      // ADMISSION HISTORY
       await tx.admissionHistory.create({
         data: {
           admissionId: admission.id,
@@ -140,16 +162,17 @@ exports.createStudent = async (req, res, next) => {
         }
       });
 
-      // AUDIT LOG
       await logAudit({
         userId: req.user.id,
         action: 'CREATE_STUDENT_WITH_ADMISSION',
         entity: 'Student',
         entityId: student.id,
         payload: {
+          reg_no,
+          uan_no,
+          class_roll: finalClassRoll,
           courseId,
           departmentId,
-          sessionId,
           semesterId,
           admissionType,
           academicYear
@@ -163,13 +186,180 @@ exports.createStudent = async (req, res, next) => {
     res.status(201).json({
       status: 'success',
       message: 'Student admitted successfully',
-      data: result
+      data: student
     });
 
   } catch (err) {
     next(err);
   }
 };
+
+
+// exports.createStudent = async (req, res, next) => {
+//   try {
+//     const { error, value } = createStudent.validate(req.body);
+//     if (error) {
+//       return next(new AppError(error.details[0].message, 400));
+//     }
+
+//     const {
+//       name,
+//       email,
+//       phone,
+//       dob,
+//       fatherName,
+//       gender,
+//       category,
+//       address,
+//       photoUrl,
+//       departmentId,
+//       courseId,
+//       sessionId,
+//       semesterId,
+//       admissionType,
+//       academicYear
+//     } = value;
+
+//     // DUPLICATE EMAIL
+//     const emailExists = await prisma.student.findUnique({ where: { email } });
+//     if (emailExists) {
+//       return next(new AppError('Student with this email already exists', 400));
+//     }
+
+//     // DEPARTMENT
+//     const department = await prisma.department.findUnique({
+//       where: { id: departmentId }
+//     });
+//     if (!department) {
+//       return next(new AppError('Department not found', 404));
+//     }
+
+//     // COURSE
+//     const course = await prisma.course.findUnique({
+//       where: { id: courseId }
+//     });
+//     if (!course || course.departmentId !== departmentId) {
+//       return next(new AppError('Invalid course for department', 400));
+//     }
+
+//     // SESSION
+//     const session = await prisma.session.findUnique({
+//       where: { id: sessionId }
+//     });
+//     if (!session) {
+//       return next(new AppError('Session not found', 404));
+//     }
+
+//     // COURSE SESSION
+//     const courseSession = await prisma.courseSession.findUnique({
+//       where: {
+//         courseId_sessionId: { courseId, sessionId }
+//       }
+//     });
+//     if (!courseSession) {
+//       return next(new AppError('Course not available in selected session', 400));
+//     }
+
+//     // SEMESTER
+//     const semester = await prisma.semester.findUnique({
+//       where: { id: semesterId }
+//     });
+//     if (!semester || semester.courseId !== courseId) {
+//       return next(new AppError('Invalid semester for selected course', 400));
+//     }
+
+//     // REG & UAN
+//     const reg_no = `REG${Date.now()}`;
+//     const uan_no = `UAN${Date.now()}`;
+
+//     // TRANSACTION
+//     const result = await prisma.$transaction(async (tx) => {
+
+//       // STUDENT
+//       const student = await tx.student.create({
+//         data: {
+//           reg_no,
+//           uan_no,
+//           name,
+//           email,
+//           phone,
+//           dob: dob ? new Date(dob) : undefined,
+//           fatherName,
+//           gender,
+//           category,
+//           address,
+//           photoUrl,
+//           courseId,
+//           sessionId,
+//           status: 'ACTIVE'
+//         }
+//       });
+
+//       // STUDENT SEMESTER
+//       await tx.studentSemester.create({
+//         data: {
+//           studentId: student.id,
+//           semesterId,
+//           status: 'ONGOING',
+//           feePaid: false,
+//           startDate: new Date()
+//         }
+//       });
+
+//       // ADMISSION
+//       const admission = await tx.admission.create({
+//         data: {
+//           studentId: student.id,
+//           courseId,
+//           departmentId,
+//           sessionId,
+//           semesterId,
+//           type: admissionType,
+//           academicYear,
+//           status: 'CONFIRMED'
+//         }
+//       });
+
+//       // ADMISSION HISTORY
+//       await tx.admissionHistory.create({
+//         data: {
+//           admissionId: admission.id,
+//           fromStatus: 'INITIATED',
+//           toStatus: 'CONFIRMED',
+//           changedById: req.user.id
+//         }
+//       });
+
+//       // AUDIT LOG
+//       await logAudit({
+//         userId: req.user.id,
+//         action: 'CREATE_STUDENT_WITH_ADMISSION',
+//         entity: 'Student',
+//         entityId: student.id,
+//         payload: {
+//           courseId,
+//           departmentId,
+//           sessionId,
+//           semesterId,
+//           admissionType,
+//           academicYear
+//         },
+//         req
+//       });
+
+//       return student;
+//     });
+
+//     res.status(201).json({
+//       status: 'success',
+//       message: 'Student admitted successfully',
+//       data: result
+//     });
+
+//   } catch (err) {
+//     next(err);
+//   }
+// };
 
 /**
  * Get all students with filtering + pagination
@@ -214,10 +404,10 @@ exports.getAllStudents = async (req, res, next) => {
       ];
     }
 
-    // 🔹 Count total records
+    // Count total records
     const totalRecords = await prisma.student.count({ where });
 
-    // 🔹 Fetch paginated students
+    // Fetch paginated students
     const students = await prisma.student.findMany({
       where,
       skip,
@@ -303,7 +493,7 @@ exports.getAllStudents = async (req, res, next) => {
 //       where.sessionId = sessionId;
 //     }
 
-//     // 🔹 NEW FILTERS
+//     // NEW FILTERS
 //     if (departmentId) {
 //       where.departmentId = departmentId;
 //     }
@@ -320,10 +510,10 @@ exports.getAllStudents = async (req, res, next) => {
 //       ];
 //     }
 
-//     // 🔹 Count total records
+//     // Count total records
 //     const totalRecords = await prisma.student.count({ where });
 
-//     // 🔹 Fetch paginated students
+//     // Fetch paginated students
 //     const students = await prisma.student.findMany({
 //       where,
 //       skip,
