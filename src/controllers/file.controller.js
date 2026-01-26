@@ -255,3 +255,40 @@ exports.deleteFile = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getPresignedUploadUrl = async (req, res, next) => {
+  try {
+
+    const { fileType, fileName, mimeType } = req.body;
+
+    const folderMap = {
+      photo: "students/photos",
+      document: "students/documents",
+      signature: "students/signatures",
+      notice: "cms/notices",
+      gallery: "cms/gallery",
+      certificate: "students/certificates",
+      receipt: "fees/receipts"
+    };
+
+    const folder = folderMap[fileType];
+
+    if (!folder) {
+      return next(new AppError("Invalid file type", 400));
+    }
+
+    const data = await fileService.generatePresignedUploadUrl({
+      folder,
+      fileName,
+      mimeType
+    });
+
+    res.json({
+      status: "success",
+      data
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
