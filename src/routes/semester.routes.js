@@ -12,6 +12,7 @@ const {
   promoteStudents,
   bulkUpdateStudentSemesterStatus
 } = require('../controllers/semester.controller');
+const { createSemesters } = require("../controllers/course.controller");
 
 // All routes below this middleware require authentication
 router.use(protect);
@@ -19,6 +20,7 @@ router.use(protect);
 // Semester Management Routes
 router.get('/', restrictTo('ADMIN', 'HOD'), getAllSemesters);
 router.get('/:id', restrictTo('ADMIN', 'HOD'), getSemester);
+router.post("/",restrictTo('ADMIN', 'HOD'), createSemesters);
 router.post('/:id/auto-assign', restrictTo('ADMIN', 'HOD'), autoAssignStudents);
 router.post('/:id/promote', restrictTo('ADMIN', 'HOD'), promoteStudents);
 router.patch('/:id/bulk-update', restrictTo('ADMIN', 'HOD'), bulkUpdateStudentSemesterStatus);
