@@ -1,7 +1,12 @@
 const Joi = require('joi');
 
-// Create student validation schema
+//<---------------------------------Create student validation schema------------------------------------------>
 const createStudent = Joi.object({
+    reg_no: Joi.string().min(5).max(50).optional(),
+  uan_no: Joi.string().min(5).max(50).required().messages({
+    'any.required': 'Registration number is required'
+  }),
+  class_roll: Joi.string().min(1).max(10).optional(),
   name: Joi.string().min(2).max(100).required().messages({
     'string.min': 'Name should be at least 2 characters long',
     'string.max': 'Name should not exceed 100 characters',
@@ -56,7 +61,7 @@ const createStudent = Joi.object({
   }) // 2025-26
 });
 
-// Update student validation schema
+//<--------------------------------- Update student validation schema---------------------------->
 const updateStudent = Joi.object({
   name: Joi.string().min(2).max(100).optional().messages({
     'string.min': 'Name should be at least 2 characters long',
@@ -93,7 +98,7 @@ const updateStudent = Joi.object({
   })
 });
 
-// Assign semester validation schema
+//<-----------------------------Assign semester validation schema------------------------------------>
 const assignSemester = Joi.object({
   semesterId: Joi.string().uuid().required().messages({
     'string.uuid': 'Semester ID must be a valid UUID',
@@ -107,43 +112,31 @@ const assignSemester = Joi.object({
     'date.iso': 'End date must be in ISO format'
   })
 });
+const verifyStudentSchema = Joi.object({
+
+  uan_no: Joi.string()
+    .trim()
+    .optional(),
+
+  reg_no: Joi.string()
+    .trim()
+    .optional(),
+
+  phone: Joi.string()
+    .pattern(/^[6-9]\d{9}$/)
+    .required()
+    .messages({
+      "string.pattern.base": "Invalid mobile number"
+    })
+
+}).xor("uan_no", "reg_no"); 
+// Either uan OR reg required (not both)
+
 
 module.exports = {
   createStudent,
   updateStudent,
-  assignSemester
+  assignSemester,
+  verifyStudentSchema
 };
-
-
-// exports.createStudent = Joi.object({
-//   // BASIC INFO
-//   name: Joi.string().min(2).max(100).required(),
-//   email: Joi.string().email().required(),
-//   phone: Joi.string().pattern(/^[0-9]{10}$/).required(),
-
-//   dob: Joi.date().iso().optional(),
-//   fatherName: Joi.string().max(100).optional(),
-
-//   gender: Joi.string().valid('MALE', 'FEMALE', 'OTHER').optional(),
-//   category: Joi.string().valid(
-//     'GENERAL',
-//     'BC_I',
-//     'BC_II',
-//     'SC',
-//     'ST',
-//     'EWS'
-//   ).optional(),
-
-//   address: Joi.string().max(500).optional(),
-//   photoUrl: Joi.string().uri().optional(),
-
-//   // ACADEMIC
-//   departmentId: Joi.string().uuid().required(),
-//   courseId: Joi.string().uuid().required(),
-//   sessionId: Joi.string().uuid().required(),
-//   semesterId: Joi.string().uuid().required(),
-
-//   admissionType: Joi.string().valid('NEW', 'CONTINUATION').required(),
-//   academicYear: Joi.string().pattern(/^\d{4}-\d{2}$/).required() // 2025-26
-// });
 

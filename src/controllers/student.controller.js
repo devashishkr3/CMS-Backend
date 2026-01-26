@@ -2,7 +2,7 @@ const prisma = require('../config/prisma');
 const AppError = require('../utils/error');
 const Joi = require('joi');
 const { logAudit } = require('../utils/auditLogger');
-const { createStudent, updateStudent, assignSemester } = require('../validation/student.validation');
+const { createStudent, updateStudent, assignSemester, verifyStudentSchema } = require('../validation/student.validation');
 
 /**
  * Create New students and Add old Students also
@@ -1086,6 +1086,131 @@ exports.updateStudentSemesterStatus = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Verify Student For Online Admission / Payment
+ * Public API
+ */
+exports.verifyStudentForAdmission = async (req, res, next) => {
+  try {
+
+    /* ============================
+       1. VALIDATE
+    ============================ */
+
+    const { error, value } = verifyStudentSchema.validate(req.body);
+
+    if (error) {
+      return next(new AppError(error.details[0].message, 400));
+    }
+
+    const { uan_no, reg_no, phone } = value;
+
+
+    /* ============================
+       2. FIND STUDENT
+    ============================ */
+
+    let student;
+
+    if (uan_no) {
+      student = await prisma.student.findUnique({
+        where: { uan_no }
+      });
+    }
+
+    if (reg_no) {
+      student = await prisma.student.findUnique({
+        where: { reg_no }
+      });
+    }
+
+    if (!student) {
+      return next(new AppError("Student not found", 404));
+    }
+
+
+    /* ============================
+       3. VERIFY MOBILE
+    ============================ */
+
+    if (student.phone !== phone) {
+      return next(new AppError("Mobile number does not match", 401));
+    }
+
+
+    /* ============================
+       4. FETCH FULL PROFILE
+    ============================ */
+
+    const profile = await prisma.student.findUnique({
+      where: { id: student.id },
+      include: {
+        course: {
+          select: {
+            id: true,
+            code: true,
+            name: true
+          }
+        },
+        session: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        semesters: {
+          include: {
+            semester: {
+              select: {
+                number: true
+              }
+            }
+          },
+          orderBy: {
+            startDate: "desc"
+          }
+        },
+        admissions: {
+          orderBy: {
+            createdAt: "desc"
+          },
+          take: 1
+        }
+      }
+    });
+
+
+    /* ============================
+       5. RESPONSE
+    ============================ */
+
+    res.status(200).json({
+      status: "success",
+      message: "Student verified successfully",
+      data: {
+        studentId: profile.id,
+        name: profile.name,
+        reg_no: profile.reg_no,
+        uan_no: profile.uan_no,
+        phone: profile.phone,
+
+        course: profile.course,
+        session: profile.session,
+
+        currentSemester:
+          profile.semesters[0]?.semester?.number || null,
+
+        lastAdmission:
+          profile.admissions[0] || null
+      }
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 // exports.bulkCreateStudents = async (req, res, next) => {
 //   try {
