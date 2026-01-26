@@ -209,6 +209,7 @@ model Course {
   semesters       Semester[]
   admissions      Admission[]
   admissionWindow AdmissionWindow[]
+  feeStructure    FeeStructure[]
 }
 
 model Subject {
@@ -266,6 +267,7 @@ model Semester {
   studentSemesters StudentSemester[]
   StudentSubject   StudentSubject[]
   admissions       Admission[]
+  feeStructure     FeeStructure[]
 
   @@unique([number, courseId])
 }
@@ -309,6 +311,9 @@ model AdmissionWindow {
   endDate      DateTime
   enabled      Boolean  @default(false)
 
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime   @updatedAt
+
   course     Course     @relation(fields: [courseId], references: [id])
   department Department @relation(fields: [departmentId], references: [id])
 }
@@ -340,6 +345,8 @@ model Admission {
 
   payments Payment[]
   history  AdmissionHistory[]
+
+  createdAt DateTime @default(now())
 
   @@unique([studentId, semesterId, academicYear]) // IMPORTANT
   @@index([studentId])
@@ -400,6 +407,20 @@ model PaymentBreakup {
 
   @@index([head])
 }
+
+model FeeStructure {
+  id         String   @id @default(uuid())
+  courseId   String
+  semesterId String
+  head       FeeHead
+  amount     Decimal
+
+  course   Course   @relation(fields: [courseId], references: [id])
+  semester Semester @relation(fields: [semesterId], references: [id])
+
+  @@unique([courseId, semesterId, head])
+}
+
 
 model Receipt {
   id        String   @id @default(uuid())
