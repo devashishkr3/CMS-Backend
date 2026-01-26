@@ -30,11 +30,6 @@ const {
 router.use(protect);
 // router.use(restrictTo('ADMIN', 'HOD'))
 
-// Admission Management Routes
-router.post('/', restrictTo('ADMIN', 'HOD'), joiValidator(createAdmission, "body"), createAdmissionController);
-router.get('/', restrictTo('ADMIN', 'HOD'), getAllAdmissions);
-router.get('/:id', restrictTo('ADMIN', 'HOD'), getAdmission);
-router.patch('/:id/status', restrictTo('ADMIN', 'HOD'), joiValidator(updateAdmissionStatus, "body"), updateAdmissionStatusController);
 
 // Admission Window Routes
 router.post('/windows', restrictTo('ADMIN'), joiValidator(createAdmissionWindow, "body"), createAdmissionWindowController);
@@ -42,5 +37,12 @@ router.get('/windows', restrictTo('ADMIN', 'HOD'), getAllAdmissionWindows);
 router.get('/windows/:id', restrictTo('ADMIN', 'HOD'), getAdmissionWindow);
 router.patch('/windows/:id', restrictTo('ADMIN'), joiValidator(updateAdmissionWindow, "body"), updateAdmissionWindowController);
 router.delete('/windows/:id', restrictTo('ADMIN'), deleteAdmissionWindow);
+
+// Admission Management Routes
+router.post('/', restrictTo('ADMIN', 'HOD'), joiValidator(createAdmission, "body"), createAdmissionController);
+router.get('/', restrictTo('ADMIN', 'HOD'), getAllAdmissions);
+router.get('/:id', restrictTo('ADMIN', 'HOD'), getAdmission);
+router.patch('/:id/status', restrictTo('ADMIN', 'HOD'), joiValidator(updateAdmissionStatus, "body"), updateAdmissionStatusController);
+
 
 module.exports = router;
