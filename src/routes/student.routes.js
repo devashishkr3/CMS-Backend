@@ -6,7 +6,7 @@ const { protect, restrictTo } = require('../middlewares/auth.middleware');
 const joiValidator = require("../middlewares/joiValidator");
 
 // Import validation schemas
-const { createStudent, updateStudent, assignSemester } = require("../validation/student.validation");
+const { createStudent, updateStudent, assignSemester, verifyStudentSchema } = require("../validation/student.validation");
 
 // Import controllers
 const {
@@ -16,8 +16,11 @@ const {
   updateStudent: updateStudentController,
   deleteStudent,
   assignSemester: assignSemesterController,
-  updateStudentSemesterStatus
+  updateStudentSemesterStatus,
+  verifyStudentForAdmission
 } = require('../controllers/student.controller');
+
+router.post("/verify-student",joiValidator(verifyStudentSchema, "body"), verifyStudentForAdmission);
 
 // All routes below this middleware require authentication
 router.use(protect);

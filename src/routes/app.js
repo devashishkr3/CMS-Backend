@@ -17,6 +17,7 @@ const cmsRoute = require("../routes/cms.routes.js");
 const sessionRoute = require("../routes/session.routes.js");
 const adminDashboardRoute = require("../routes/adminDashboard.routes.js");
 const feeStructure = require("../routes/fee.route.js");
+const promotionRoute = require("../routes/promotion.route.js");
 
 router.use("/auth", authRoute);
 router.use("/admin", adminRoute);
@@ -35,5 +36,6 @@ router.use("/cms", cmsRoute);
 router.use("/sessions", sessionRoute);
 router.use("/admin-dashboard", adminDashboardRoute);
 router.use("/fee", feeStructure);
+router.use("/promotion", promotionRoute);
 
 module.exports = router;
