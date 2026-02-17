@@ -22,6 +22,7 @@ enum UserRole {
 }
 
 enum PaymentStatus {
+  PENDING
   INITIATED
   SUCCESS
   FAILED
