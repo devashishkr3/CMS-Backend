@@ -365,6 +365,7 @@ exports.createStudent = async (req, res, next) => {
  * Get all students with filtering + pagination
  * Access: ADMIN, HOD
  */
+
 exports.getAllStudents = async (req, res, next) => {
   try {
     const {
