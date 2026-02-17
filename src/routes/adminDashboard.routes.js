@@ -13,7 +13,7 @@ const {
 } = require('../controllers/adminDashboard.controller');
 
 // All routes below this middleware require authentication
-router.use(protect, restrictTo('ADMIN'));
+// router.use(protect, restrictTo('ADMIN'));
 
 // Admin Dashboard Routes
 router.get('/stats', getDashboardStats);
