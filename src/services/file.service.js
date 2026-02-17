@@ -5,36 +5,6 @@ const prisma = require('../config/prisma');
 const AppError = require('../utils/error');
 
 /**
- * Upload file to Cloudflare R2
- * @param {Buffer} fileBuffer - File buffer
- * @param {string} fileName - Original file name
- * @param {string} folder - Folder to store the file in
- * @returns {Promise<string>} - URL of the uploaded file
- */
-exports.uploadFileToR2 = async (fileBuffer, fileName, folder) => {
-  try {
-    // Generate unique file name
-    const timestamp = Date.now();
-    const uniqueFileName = `${folder}/${timestamp}-${fileName}`;
-    
-    // Upload file to R2
-    const uploadParams = {
-      Bucket: R2_BUCKET_NAME,
-      Key: uniqueFileName,
-      Body: fileBuffer,
-      ContentType: getFileMimeType(fileName)
-    };
-    
-    await r2Client.send(new PutObjectCommand(uploadParams));
-    
-    // Return the file URL
-    return `https://${R2_BUCKET_NAME}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${uniqueFileName}`;
-  } catch (error) {
-    throw new AppError('Failed to upload file to Cloudflare R2', 500);
-  }
-};
-
-/**
  * Generate signed URL for file download
  * @param {string} fileName - File name in R2
  * @param {number} expiresIn - Expiration time in seconds (default: 3600)
@@ -250,30 +220,26 @@ const getFileMimeType = (fileName) => {
   return mimeTypes[extension] || 'application/octet-stream';
 };
 
-// const { PutObjectCommand } = require("@aws-sdk/client-s3");
-// const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-// const { r2Client, R2_BUCKET_NAME } = require("../config/cloudflareR2");
+exports.generatePresignedUploadUrl = async ({
+  folder,
+  fileName,
+  mimeType
+}) => {
+  const key = `${folder}/${Date.now()}-${fileName}`;
 
-// exports.generatePresignedUploadUrl = async ({
-//   folder,
-//   fileName,
-//   mimeType
-// }) => {
-//   const key = `${folder}/${Date.now()}-${fileName}`;
+  const command = new PutObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: key,
+    ContentType: mimeType
+  });
 
-//   const command = new PutObjectCommand({
-//     Bucket: R2_BUCKET_NAME,
-//     Key: key,
-//     ContentType: mimeType
-//   });
+  const uploadUrl = await getSignedUrl(r2Client, command, {
+    expiresIn: 300 // 5 min
+  });
 
-//   const uploadUrl = await getSignedUrl(r2Client, command, {
-//     expiresIn: 300 // 5 min
-//   });
-
-//   return {
-//     uploadUrl,
-//     fileUrl: `https://${R2_BUCKET_NAME}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`,
-//     key
-//   };
-// };
+  return {
+    uploadUrl,
+    fileUrl: `https://${R2_BUCKET_NAME}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`,
+    key
+  };
+};

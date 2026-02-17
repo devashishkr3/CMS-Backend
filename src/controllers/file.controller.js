@@ -185,10 +185,10 @@ exports.getFileDownloadUrl = async (req, res, next) => {
       return next(new AppError('File not found', 404));
     }
 
-    // For STUDENT role, only allow accessing own files
-    if (req.user.role === 'STUDENT' && fileMetadata.studentId !== req.user.id) {
-      return next(new AppError('You can only access your own files', 403));
-    }
+    // // For STUDENT role, only allow accessing own files
+    // if (req.user.role === 'STUDENT' && fileMetadata.studentId !== req.user.id) {
+    //   return next(new AppError('You can only access your own files', 403));
+    // }
 
     // Extract file key from URL
     const fileUrl = fileMetadata.fileUrl;

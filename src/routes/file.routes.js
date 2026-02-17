@@ -15,7 +15,8 @@ const {
   getStudentDocuments,
   verifyDocument: verifyDocumentController,
   getFileDownloadUrl,
-  deleteFile
+  deleteFile,
+  getPresignedUploadUrl
 } = require('../controllers/file.controller');
 
 // All routes below this middleware require authentication
@@ -56,15 +57,14 @@ router.delete(
   deleteFile
 );
 
+router.post(
+  "/presign-upload",
+  protect,
+  restrictTo("ADMIN", "HOD", "STUDENT"),
+  getPresignedUploadUrl
+);
+
 module.exports = router;
-
-
-// router.post(
-//   "/presign-upload",
-//   protect,
-//   restrictTo("ADMIN", "HOD", "STUDENT"),
-//   getPresignedUploadUrl
-// );
 
 // exports.saveFileMetadata = async (req, res) => {
 //   const { fileType, studentId, documentType, fileUrl } = req.body;
