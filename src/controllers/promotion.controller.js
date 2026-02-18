@@ -7,7 +7,6 @@ const { logAudit } = require("../utils/auditLogger");
 ================================================== */
 exports.previewAutoPromotion = async (req, res, next) => {
   try {
-
     const { courseId, sessionId } = req.query;
 
     const semesters = await prisma.semester.findMany({
