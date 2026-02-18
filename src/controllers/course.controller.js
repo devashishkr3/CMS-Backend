@@ -1,6 +1,9 @@
-const prisma = require('../config/prisma');
-const AppError = require('../utils/error');
-const { createCourse, updateCourse } = require('../validation/course.validation');
+const prisma = require("../config/prisma");
+const AppError = require("../utils/error");
+const {
+  createCourse,
+  updateCourse,
+} = require("../validation/course.validation");
 
 /**
  * Create a new course
@@ -95,52 +98,71 @@ exports.createCourse = async (req, res, next) => {
     const { error, value } = createCourse.validate(req.body);
     if (error) {
       return next(
-        new AppError(error.details.map(d => d.message).join(', '), 400)
+        new AppError(error.details.map((d) => d.message).join(", "), 400),
       );
     }
 
-    const {
-      name,
-      code,
-      durationYears,
-      departmentId,
-      sessionId
-    } = value;
+    const { name, code, durationYears, departmentId, sessionId } = value;
     // console.log(value);
 
     // 2️⃣ Validate department
     const department = await prisma.department.findUnique({
-      where: { id: departmentId }
+      where: { id: departmentId },
     });
 
     if (!department) {
-      return next(new AppError('Department not found', 404));
+      return next(new AppError("Department not found", 404));
     }
 
     // 3️⃣ Validate session
     const session = await prisma.session.findUnique({
-      where: { id: sessionId }
+      where: { id: sessionId },
     });
 
     if (!session) {
-      return next(new AppError('Session not found', 404));
+      return next(new AppError("Session not found", 404));
     }
 
     // 4️⃣ Course uniqueness
-    const existingCourse = await prisma.course.findFirst({
+    // const existingCourse = await prisma.course.findFirst({
+    //   where: {
+    //     OR: [{ name }, { code }]
+    //   }
+    // });
+
+    // if (existingCourse) {
+    //   return next(
+    //     new AppError(
+    //       existingCourse.name === name
+    //         ? 'Course with this name already exists'
+    //         : 'Course with this code already exists',
+    //       400
+    //     )
+    //   );
+    // }
+
+    // 4️⃣ Course uniqueness PER SESSION + DEPARTMENT
+    const existingCourse = await prisma.courseSession.findFirst({
       where: {
-        OR: [{ name }, { code }]
-      }
+        sessionId,
+        course: {
+          departmentId,
+          OR: [{ name }, { code }],
+        },
+      },
+      include: {
+        course: true,
+      },
     });
 
     if (existingCourse) {
       return next(
         new AppError(
-          existingCourse.name === name
-            ? 'Course with this name already exists'
-            : 'Course with this code already exists',
-          400
-        )
+          existingCourse.course.name === name
+            ? "Course with this name already exists in this session"
+            : "Course with this code already exists in this session",
+          400,
+        ),
       );
     }
 
@@ -152,16 +174,16 @@ exports.createCourse = async (req, res, next) => {
           name,
           code,
           durationYears,
-          departmentId
-        }
+          departmentId,
+        },
       });
 
       // Link course to session
       await tx.courseSession.create({
         data: {
           courseId: createdCourse.id,
-          sessionId
-        }
+          sessionId,
+        },
       });
 
       // Auto-create semesters
@@ -169,7 +191,7 @@ exports.createCourse = async (req, res, next) => {
 
       const semesters = Array.from({ length: totalSemesters }, (_, i) => ({
         number: i + 1,
-        courseId: createdCourse.id
+        courseId: createdCourse.id,
       }));
 
       await tx.semester.createMany({ data: semesters });
@@ -178,8 +200,8 @@ exports.createCourse = async (req, res, next) => {
       await tx.auditLog.create({
         data: {
           userId: req.user.id,
-          action: 'CREATE_COURSE_WITH_SESSION_AND_SEMESTERS',
-          entity: 'Course',
+          action: "CREATE_COURSE_WITH_SESSION_AND_SEMESTERS",
+          entity: "Course",
           entityId: createdCourse.id,
           payload: {
             name,
@@ -187,9 +209,9 @@ exports.createCourse = async (req, res, next) => {
             durationYears,
             departmentId,
             sessionId,
-            totalSemesters
-          }
-        }
+            totalSemesters,
+          },
+        },
       });
 
       return createdCourse;
@@ -200,34 +222,33 @@ exports.createCourse = async (req, res, next) => {
       where: { id: course.id },
       include: {
         department: {
-          select: { id: true, name: true, code: true }
+          select: { id: true, name: true, code: true },
         },
         sessions: {
           include: {
             session: {
-              select: { id: true, name: true }
-            }
-          }
+              select: { id: true, name: true },
+            },
+          },
         },
         semesters: {
           select: { id: true, number: true },
-          orderBy: { number: 'asc' }
-        }
-      }
+          orderBy: { number: "asc" },
+        },
+      },
     });
 
     res.status(201).json({
-      status: 'success',
-      message: 'Course created with session and semesters successfully',
+      status: "success",
+      message: "Course created with session and semesters successfully",
       data: {
-        course: fullCourse
-      }
+        course: fullCourse,
+      },
     });
   } catch (error) {
     next(error);
   }
 };
-
 
 /**
  * Get all courses with filtering options
@@ -236,10 +257,10 @@ exports.createCourse = async (req, res, next) => {
 exports.getAllCourses = async (req, res, next) => {
   try {
     const { departmentId } = req.query;
-    
+
     // Build where clause
     const where = {};
-    
+
     if (departmentId) {
       where.departmentId = departmentId;
     }
@@ -251,26 +272,26 @@ exports.getAllCourses = async (req, res, next) => {
           select: {
             id: true,
             name: true,
-            code: true
-          }
+            code: true,
+          },
         },
         subjects: {
           select: {
-            id: true
-          }
-        }
+            id: true,
+          },
+        },
       },
       orderBy: {
-        name: 'asc'
-      }
+        name: "asc",
+      },
     });
 
     res.status(200).json({
-      status: 'success',
+      status: "success",
       results: courses.length,
       data: {
-        courses
-      }
+        courses,
+      },
     });
   } catch (error) {
     next(error);
@@ -292,35 +313,35 @@ exports.getCourse = async (req, res, next) => {
           select: {
             id: true,
             name: true,
-            code: true
-          }
+            code: true,
+          },
         },
         subjects: {
           select: {
             id: true,
             code: true,
             name: true,
-            credit: true
-          }
+            credit: true,
+          },
         },
         semesters: {
           select: {
             id: true,
-            number: true
-          }
-        }
-      }
+            number: true,
+          },
+        },
+      },
     });
 
     if (!course) {
-      return next(new AppError('Course not found', 404));
+      return next(new AppError("Course not found", 404));
     }
 
     res.status(200).json({
-      status: 'success',
+      status: "success",
       data: {
-        course
-      }
+        course,
+      },
     });
   } catch (error) {
     next(error);
@@ -334,20 +355,22 @@ exports.getCourse = async (req, res, next) => {
 exports.updateCourse = async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     // Validate request body
     const { error, value } = updateCourse.validate(req.body);
     if (error) {
-      return next(new AppError(error.details.map(d => d.message).join(', '), 400));
+      return next(
+        new AppError(error.details.map((d) => d.message).join(", "), 400),
+      );
     }
 
     // Check if course exists
     const course = await prisma.course.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!course) {
-      return next(new AppError('Course not found', 404));
+      return next(new AppError("Course not found", 404));
     }
 
     const { name, code, durationYears, departmentId } = value;
@@ -355,39 +378,39 @@ exports.updateCourse = async (req, res, next) => {
     // Check if department exists (if provided)
     if (departmentId) {
       const department = await prisma.department.findUnique({
-        where: { id: departmentId }
+        where: { id: departmentId },
       });
 
       if (!department) {
-        return next(new AppError('Department not found', 404));
+        return next(new AppError("Department not found", 404));
       }
     }
 
     // Check if another course with this name already exists
     if (name && name !== course.name) {
       const existingCourse = await prisma.course.findFirst({
-        where: { 
+        where: {
           name,
-          NOT: { id }
-        }
+          NOT: { id },
+        },
       });
 
       if (existingCourse) {
-        return next(new AppError('Course with this name already exists', 400));
+        return next(new AppError("Course with this name already exists", 400));
       }
     }
 
     // Check if another course with this code already exists (if code is provided)
     if (code && code !== course.code) {
       const existingCourseByCode = await prisma.course.findFirst({
-        where: { 
+        where: {
           code,
-          NOT: { id }
-        }
+          NOT: { id },
+        },
       });
 
       if (existingCourseByCode) {
-        return next(new AppError('Course with this code already exists', 400));
+        return next(new AppError("Course with this code already exists", 400));
       }
     }
 
@@ -398,36 +421,36 @@ exports.updateCourse = async (req, res, next) => {
         name: name || course.name,
         code: code || course.code,
         durationYears: durationYears || course.durationYears,
-        departmentId: departmentId || course.departmentId
+        departmentId: departmentId || course.departmentId,
       },
       include: {
         department: {
           select: {
             id: true,
             name: true,
-            code: true
-          }
-        }
-      }
+            code: true,
+          },
+        },
+      },
     });
 
     // Log audit entry
     await prisma.auditLog.create({
       data: {
         userId: req.user.id,
-        action: 'UPDATE_COURSE',
-        entity: 'Course',
+        action: "UPDATE_COURSE",
+        entity: "Course",
         entityId: id,
-        payload: JSON.stringify(value)
-      }
+        payload: JSON.stringify(value),
+      },
     });
 
     res.status(200).json({
-      status: 'success',
-      message: 'Course updated successfully',
+      status: "success",
+      message: "Course updated successfully",
       data: {
-        course: updatedCourse
-      }
+        course: updatedCourse,
+      },
     });
   } catch (error) {
     next(error);
@@ -444,50 +467,54 @@ exports.deleteCourse = async (req, res, next) => {
 
     // Check if course exists
     const course = await prisma.course.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!course) {
-      return next(new AppError('Course not found', 404));
+      return next(new AppError("Course not found", 404));
     }
 
     // Check if course has associated students
     const studentsCount = await prisma.student.count({
-      where: { courseId: id }
+      where: { courseId: id },
     });
 
     if (studentsCount > 0) {
-      return next(new AppError('Cannot delete course with associated students', 400));
+      return next(
+        new AppError("Cannot delete course with associated students", 400),
+      );
     }
 
     // Check if course has associated semesters
     const semestersCount = await prisma.semester.count({
-      where: { courseId: id }
+      where: { courseId: id },
     });
 
     if (semestersCount > 0) {
-      return next(new AppError('Cannot delete course with associated semesters', 400));
+      return next(
+        new AppError("Cannot delete course with associated semesters", 400),
+      );
     }
 
     // Delete course
     await prisma.course.delete({
-      where: { id }
+      where: { id },
     });
 
     // Log audit entry
     await prisma.auditLog.create({
       data: {
         userId: req.user.id,
-        action: 'DELETE_COURSE',
-        entity: 'Course',
+        action: "DELETE_COURSE",
+        entity: "Course",
         entityId: id,
-        payload: JSON.stringify({ name: course.name, code: course.code })
-      }
+        payload: JSON.stringify({ name: course.name, code: course.code }),
+      },
     });
 
     res.status(200).json({
-      status: 'success',
-      message: 'Course deleted successfully'
+      status: "success",
+      message: "Course deleted successfully",
     });
   } catch (error) {
     next(error);
@@ -505,31 +532,38 @@ exports.createSemesters = async (req, res, next) => {
 
     // Validate input
     if (!numberOfSemesters || numberOfSemesters <= 0) {
-      return next(new AppError('Number of semesters must be a positive integer', 400));
+      return next(
+        new AppError("Number of semesters must be a positive integer", 400),
+      );
     }
 
     // Check if course exists
     const course = await prisma.course.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!course) {
-      return next(new AppError('Course not found', 404));
+      return next(new AppError("Course not found", 404));
     }
 
     // Calculate expected number of semesters based on duration
     const expectedSemesters = course.durationYears * 2;
     if (numberOfSemesters > expectedSemesters) {
-      return next(new AppError(`Number of semesters cannot exceed ${expectedSemesters} for a ${course.durationYears}-year course`, 400));
+      return next(
+        new AppError(
+          `Number of semesters cannot exceed ${expectedSemesters} for a ${course.durationYears}-year course`,
+          400,
+        ),
+      );
     }
 
     // Check if semesters already exist for this course
     const existingSemesters = await prisma.semester.count({
-      where: { courseId: id }
+      where: { courseId: id },
     });
 
     if (existingSemesters > 0) {
-      return next(new AppError('Semesters already exist for this course', 400));
+      return next(new AppError("Semesters already exist for this course", 400));
     }
 
     // Create semesters
@@ -537,31 +571,31 @@ exports.createSemesters = async (req, res, next) => {
     for (let i = 1; i <= numberOfSemesters; i++) {
       semestersData.push({
         number: i,
-        courseId: id
+        courseId: id,
       });
     }
 
     const semesters = await prisma.semester.createMany({
-      data: semestersData
+      data: semestersData,
     });
 
     // Log audit entry
     await prisma.auditLog.create({
       data: {
         userId: req.user.id,
-        action: 'CREATE_SEMESTERS_FOR_COURSE',
-        entity: 'Semester',
+        action: "CREATE_SEMESTERS_FOR_COURSE",
+        entity: "Semester",
         entityId: id,
-        payload: JSON.stringify({ courseId: id, numberOfSemesters })
-      }
+        payload: JSON.stringify({ courseId: id, numberOfSemesters }),
+      },
     });
 
     res.status(201).json({
-      status: 'success',
+      status: "success",
       message: `${semesters.count} semesters created successfully for course`,
       data: {
-        count: semesters.count
-      }
+        count: semesters.count,
+      },
     });
   } catch (error) {
     next(error);
