@@ -197,7 +197,7 @@ model Department {
 
 model Course {
   id            String @id @default(uuid())
-  code          String @unique
+  code          String
   name          String
   durationYears Int
   departmentId  String
