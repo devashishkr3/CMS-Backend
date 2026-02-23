@@ -115,63 +115,64 @@ exports.loginUser = async (req, res, next) => {
 };
 
 // Refresh token
-// Refresh Token Controller
 exports.refreshToken = async (req, res, next) => {
   try {
-    const { refreshToken } = req.body;
+    const authHeader = req.headers.authorization;
 
-    // Check if token provided
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next(new AppError("AuthHeader is required", 400));
+  }
+
+  // extracting refresh token from auth header
+  const refreshToken = authHeader && authHeader.split(" ")[1];
+
+    // check if refresh token is provided
     if (!refreshToken) {
-      return next(new AppError("Refresh token is required", 400));
+        return next(new AppError("Refresh token is required", 400));
     }
 
-    //  Verify refresh token
+    // Verify refresh token
     let decoded;
     try {
       decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     } catch (err) {
-      return next(new AppError("Invalid or expired refresh token", 401));
+      return next(new AppError('Invalid refresh token', 401));
     }
 
     // Check if user exists
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id }, // ✅ FIXED (was decoded.userId)
+      where: { id: decoded.userId }
     });
 
     if (!user) {
-      return next(new AppError("User no longer exists", 401));
+      return next(new AppError('User no longer exists', 401));
     }
 
-    // Check if user active
+    // Check if user is active
     if (!user.isActive) {
-      return next(
-        new AppError("Account is deactivated. Contact admin.", 403)
-      );
+      return next(new AppError('Account is deactivated. Please contact admin.', 403));
     }
 
-    //  Check blacklist
-    const blacklisted = await prisma.blacklistedToken.findUnique({
-      where: { token: refreshToken },
+    // Check if token is blacklisted
+    const blacklistedToken = await prisma.blacklistedToken.findUnique({
+      where: { token: refreshToken }
     });
 
-    if (blacklisted) {
-      return next(new AppError("Refresh token has been revoked", 401));
+    if (blacklistedToken) {
+      return next(new AppError('Refresh token has been revoked', 401));
     }
 
-    // 6Generate new access token
-    const newAccessToken = tokenGenerator.generateAccessToken(
-      user.id,
-      user.role
-    );
+    // Generate new tokens
+    const newAccessToken = tokenGenerator.generateAccessToken(user.id, user.role)
 
     // Send response
     res.status(200).json({
-      status: "success",
-      message: "Token refreshed successfully",
+      status: 'success',
+      message: 'Token refreshed successfully',
       data: {
-        accessToken: newAccessToken,
-        refreshToken: refreshToken, // returning same refresh token
-      },
+        accessToken : newAccessToken,
+        refreshToken
+      }
     });
   } catch (error) {
     next(error);
