@@ -19,13 +19,23 @@ const {
   getPayment,
   updatePaymentStatus: updatePaymentStatusController,
   refundPayment: refundPaymentController,
-  getPaymentStats
+  getPaymentStats,
+  paymentCallback,
+  generatePaymentLink,
+  paymentReturn
 } = require('../controllers/payment.controller');
 
 // All routes below this middleware require authentication
 router.use(protect);
 
 // Payment Management Routes
+
+
+router.post("/return", paymentReturn);
+router.post("/callback", paymentCallback);
+router.post("/:paymentId/generate-link", protect, generatePaymentLink);
+
+
 router.post('/', restrictTo('ADMIN', 'ACCOUNTANT'), joiValidator(createPayment, "body"), createPaymentController);
 router.get('/', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getAllPayments);
 router.get('/stats', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPaymentStats);

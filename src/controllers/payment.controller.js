@@ -5,6 +5,9 @@ const {
   updatePaymentStatus, 
   refundPayment 
 } = require('../validation/payment.validation');
+const axios = require("axios");
+const GcmPgEncryption = require("../utils/getepayEncrypt");
+const { generateReceiptAndCertificate } = require("./receipt.controller");
 
 /**
  * Create a new payment
@@ -482,4 +485,94 @@ exports.getPaymentStats = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+/**
+ * STEP 1: Generate Payment Link
+ */
+exports.generatePaymentLink = async (req, res, next) => {
+  const { paymentId } = req.params;
+
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: { student: true }
+  });
+
+  if (!payment) return next(new AppError("Payment not found", 404));
+
+  const payload = {
+    mid: process.env.GETEPAY_MID,
+    terminalId: process.env.GETEPAY_TERMINAL_ID,
+    amount: payment.totalAmount.toFixed(2),
+    merchantTransactionId: payment.txnId,
+    transactionDate: new Date().toISOString(),
+    ru: process.env.GETEPAY_RETURN_URL,
+    callbackUrl: process.env.GETEPAY_CALLBACK_URL,
+    currency: "INR",
+    paymentMode: "ALL",
+    udf1: payment.student.phone,
+    udf2: payment.student.email,
+    udf3: payment.student.name
+  };
+
+  const enc = new GcmPgEncryption(
+    process.env.GETEPAY_IV,
+    process.env.GETEPAY_KEY
+  );
+
+  const encrypted = await enc.encrypt(JSON.stringify(payload));
+
+  const response = await axios.post(process.env.GETEPAY_URL, {
+    mid: process.env.GETEPAY_MID,
+    terminalId: process.env.GETEPAY_TERMINAL_ID,
+    req: encrypted
+  });
+
+  const decrypted = JSON.parse(await enc.decrypt(response.data.response));
+
+  res.json({
+    status: "success",
+    paymentUrl: decrypted.paymentUrl
+  });
+};
+
+/**
+ * STEP 2: Return URL (Browser Redirect)
+ */
+exports.paymentReturn = async (req, res) => {
+  res.redirect(`${process.env.FRONTEND_URL}/payment-processing`);
+};
+
+/**
+ * STEP 3: Callback URL (SERVER → SERVER)
+ */
+exports.paymentCallback = async (req, res) => {
+  const enc = new GcmPgEncryption(
+    process.env.GETEPAY_IV,
+    process.env.GETEPAY_KEY
+  );
+
+  const decrypted = JSON.parse(await enc.decrypt(req.body.response));
+
+  const payment = await prisma.payment.findUnique({
+    where: { txnId: decrypted.merchantTransactionId }
+  });
+
+  if (!payment) return res.sendStatus(400);
+
+  if (decrypted.paymentStatus === "SUCCESS") {
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: "SUCCESS" }
+    });
+
+    await generateReceiptAndCertificate(payment.id);
+  } else {
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: "FAILED" }
+    });
+  }
+
+  res.sendStatus(200);
 };
