@@ -22,24 +22,42 @@ const {
   getPaymentStats,
   paymentCallback,
   generatePaymentLink,
-  paymentReturn
+  paymentReturn,
+  studentGeneratePaymentLink
 } = require('../controllers/payment.controller');
 
-// All routes below this middleware require authentication
+// ========== PUBLIC ROUTES (No Auth Required) ==========
+// These endpoints are called by GetEpay gateway
+// IMPORTANT: Put specific routes BEFORE generic /:id routes
+router.post("/callback", paymentCallback);
+router.get("/return", paymentReturn);
+router.post("/return", paymentReturn); // GetEpay might send POST
+
+// TEST ENDPOINT: Manually test callback (for debugging only)
+// Usage: POST to /callback-test with encrypted response from GetEpay
+router.post('/callback-test', (req, res, next) => {
+  console.log('🧪 [TEST CALLBACK] Received test callback');
+  console.log('📦 [TEST CALLBACK] Body:', JSON.stringify(req.body, null, 2));
+  // Pass to actual callback handler
+  paymentCallback(req, res, next);
+});
+
+// TESTING: Public endpoints for frontend testing
+// TODO: Secure these with authentication in production
+router.post('/', joiValidator(createPayment, "body"), createPaymentController);
+router.post('/:paymentId/generate-link', generatePaymentLink);
+router.get('/:id', getPayment); // Get payment status - public for testing
+
+// ========== AUTHENTICATED ROUTES ==========
 router.use(protect);
 
-// Payment Management Routes
+// ========== STUDENT/COMMON ROUTES ==========
+router.post('/:paymentId/student-generate-link', studentGeneratePaymentLink);
 
-
-router.post("/return", paymentReturn);
-router.post("/callback", paymentCallback);
-router.post("/:paymentId/generate-link", protect, generatePaymentLink);
-
-
-router.post('/', restrictTo('ADMIN', 'ACCOUNTANT'), joiValidator(createPayment, "body"), createPaymentController);
+// ========== ADMIN/ACCOUNTANT ROUTES ==========
+// Admin and accountant routes
 router.get('/', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getAllPayments);
 router.get('/stats', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPaymentStats);
-router.get('/:id', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPayment);
 router.patch('/:id/status', restrictTo('ADMIN', 'ACCOUNTANT'), joiValidator(updatePaymentStatus, "body"), updatePaymentStatusController);
 router.post('/:id/refund', restrictTo('ADMIN', 'ACCOUNTANT'), joiValidator(refundPayment, "body"), refundPaymentController);
 

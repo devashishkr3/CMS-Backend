@@ -20,10 +20,17 @@ const {
   verifyStudentForAdmission
 } = require('../controllers/student.controller');
 
+const {
+  studentGeneratePaymentLink
+} = require('../controllers/payment.controller');
+
 router.post("/verify-student",joiValidator(verifyStudentSchema, "body"), verifyStudentForAdmission);
 
 // All routes below this middleware require authentication
 router.use(protect);
+
+// Student Payment Routes
+router.post('/:id/payments/:paymentId/generate-link', studentGeneratePaymentLink);
 
 // Student Management Routes
 router.post('/', restrictTo('ADMIN', 'HOD'), joiValidator(createStudent, "body"), createStudentController);
