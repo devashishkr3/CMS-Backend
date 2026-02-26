@@ -267,7 +267,7 @@ exports.getAllCourses = async (req, res, next) => {
 
     const courses = await prisma.course.findMany({
       where,
-      distinct: ['code'], 
+      // distinct: ['code'], 
       include: {
         department: {
           select: {
