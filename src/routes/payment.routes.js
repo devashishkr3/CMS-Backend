@@ -25,22 +25,21 @@ const {
   paymentReturn
 } = require('../controllers/payment.controller');
 
+
+// Payment Management Routes
+router.post("/return", paymentReturn);
+router.post("/callback", paymentCallback);
+
 // All routes below this middleware require authentication
 router.use(protect);
 
-// Payment Management Routes
-
-
-router.post("/return", paymentReturn);
-router.post("/callback", paymentCallback);
 router.post("/:paymentId/generate-link", protect, generatePaymentLink);
 
-
-router.post('/', restrictTo('ADMIN', 'ACCOUNTANT'), joiValidator(createPayment, "body"), createPaymentController);
-router.get('/', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getAllPayments);
-router.get('/stats', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPaymentStats);
-router.get('/:id', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPayment);
-router.patch('/:id/status', restrictTo('ADMIN', 'ACCOUNTANT'), joiValidator(updatePaymentStatus, "body"), updatePaymentStatusController);
-router.post('/:id/refund', restrictTo('ADMIN', 'ACCOUNTANT'), joiValidator(refundPayment, "body"), refundPaymentController);
+router.post('/', restrictTo('ADMIN'), joiValidator(createPayment, "body"), createPaymentController);
+router.get('/', restrictTo('ADMIN'), getAllPayments);
+router.get('/stats', restrictTo('ADMIN'), getPaymentStats);
+router.get('/:id', restrictTo('ADMIN'), getPayment);
+router.patch('/:id/status', restrictTo('ADMIN'), joiValidator(updatePaymentStatus, "body"), updatePaymentStatusController);
+router.post('/:id/refund', restrictTo('ADMIN'), joiValidator(refundPayment, "body"), refundPaymentController);
 
 module.exports = router;
