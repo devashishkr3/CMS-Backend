@@ -1,0 +1,1301 @@
+{
+  "departments": [
+    {
+      "id": "dept-arts-001",
+      "name": "Department of Arts",
+      "code": "ARTS",
+      "description": "Department offering various arts courses"
+    },
+    {
+      "id": "dept-science-001", 
+      "name": "Department of Science",
+      "code": "SCI",
+      "description": "Department offering various science courses"
+    },
+    {
+      "id": "dept-commerce-001",
+      "name": "Department of Commerce",
+      "code": "COM",
+      "description": "Department offering various commerce courses"
+    },
+    {
+      "id": "dept-english-001",
+      "name": "Department of English",
+      "code": "ENG",
+      "description": "Department offering English literature and language courses"
+    },
+    {
+      "id": "dept-maths-001",
+      "name": "Department of Mathematics",
+      "code": "MATH",
+      "description": "Department offering Mathematics courses"
+    },
+    {
+      "id": "dept-physics-001",
+      "name": "Department of Physics",
+      "code": "PHY",
+      "description": "Department offering Physics courses"
+    },
+    {
+      "id": "dept-chemistry-001",
+      "name": "Department of Chemistry",
+      "code": "CHEM",
+      "description": "Department offering Chemistry courses"
+    },
+    {
+      "id": "dept-biology-001",
+      "name": "Department of Biology",
+      "code": "BIO",
+      "description": "Department offering Biology courses"
+    },
+    {
+      "id": "dept-economics-001",
+      "name": "Department of Economics",
+      "code": "ECO",
+      "description": "Department offering Economics courses"
+    },
+    {
+      "id": "dept-history-001",
+      "name": "Department of History",
+      "code": "HIST",
+      "description": "Department offering History courses"
+    }
+  ],
+  "courses": [
+    {
+      "id": "course-ba-001",
+      "code": "BA-GEN",
+      "name": "Bachelor of Arts (General)",
+      "durationYears": 3,
+      "departmentId": "dept-arts-001"
+    },
+    {
+      "id": "course-ba-002",
+      "code": "BA-HONS",
+      "name": "Bachelor of Arts (Hons.)",
+      "durationYears": 3,
+      "departmentId": "dept-arts-001"
+    },
+    {
+      "id": "course-bsc-001",
+      "code": "BSC-GEN",
+      "name": "Bachelor of Science (General)",
+      "durationYears": 3,
+      "departmentId": "dept-science-001"
+    },
+    {
+      "id": "course-bsc-002",
+      "code": "BSC-HONS",
+      "name": "Bachelor of Science (Hons.)",
+      "durationYears": 3,
+      "departmentId": "dept-science-001"
+    },
+    {
+      "id": "course-bcom-001",
+      "code": "BCOM-GEN",
+      "name": "Bachelor of Commerce (General)",
+      "durationYears": 3,
+      "departmentId": "dept-commerce-001"
+    },
+    {
+      "id": "course-bcom-002",
+      "code": "BCOM-HONS",
+      "name": "Bachelor of Commerce (Hons.)",
+      "durationYears": 3,
+      "departmentId": "dept-commerce-001"
+    },
+    {
+      "id": "course-ba-english-001",
+      "code": "BA-ENG",
+      "name": "BA English Literature",
+      "durationYears": 3,
+      "departmentId": "dept-english-001"
+    },
+    {
+      "id": "course-bsc-maths-001",
+      "code": "BSC-MATH",
+      "name": "BSc Mathematics",
+      "durationYears": 3,
+      "departmentId": "dept-maths-001"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "session-2026-2030",
+      "name": "2026-2030",
+      "startYear": 2026,
+      "endYear": 2030,
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "session-2026-2030-bsc",
+      "name": "2026-2029",
+      "startYear": 2026,
+      "endYear": 2029,
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "session-2026-2030-bcom",
+      "name": "2026-2029",
+      "startYear": 2026,
+      "endYear": 2029,
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "session-2026-2030-ba-hons",
+      "name": "2026-2029",
+      "startYear": 2026,
+      "endYear": 2029,
+      "courseId": "course-ba-002"
+    },
+    {
+      "id": "session-2026-2030-bsc-hons",
+      "name": "2026-2029",
+      "startYear": 2026,
+      "endYear": 2029,
+      "courseId": "course-bsc-002"
+    },
+    {
+      "id": "session-2026-2030-bcom-hons",
+      "name": "2026-2029",
+      "startYear": 2026,
+      "endYear": 2029,
+      "courseId": "course-bcom-002"
+    },
+    {
+      "id": "session-2026-2030-ba-eng",
+      "name": "2026-2029",
+      "startYear": 2026,
+      "endYear": 2029,
+      "courseId": "course-ba-english-001"
+    },
+    {
+      "id": "session-2026-2030-bsc-maths",
+      "name": "2026-2029",
+      "startYear": 2026,
+      "endYear": 2029,
+      "courseId": "course-bsc-maths-001"
+    }
+  ],
+  "semesters": [
+    {
+      "id": "sem-ba-1",
+      "number": 1,
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sem-ba-2",
+      "number": 2,
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sem-ba-3",
+      "number": 3,
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sem-ba-4",
+      "number": 4,
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sem-ba-5",
+      "number": 5,
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sem-ba-6",
+      "number": 6,
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sem-bsc-1",
+      "number": 1,
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sem-bsc-2",
+      "number": 2,
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sem-bsc-3",
+      "number": 3,
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sem-bsc-4",
+      "number": 4,
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sem-bsc-5",
+      "number": 5,
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sem-bsc-6",
+      "number": 6,
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sem-bcom-1",
+      "number": 1,
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "sem-bcom-2",
+      "number": 2,
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "sem-bcom-3",
+      "number": 3,
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "sem-bcom-4",
+      "number": 4,
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "sem-bcom-5",
+      "number": 5,
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "sem-bcom-6",
+      "number": 6,
+      "courseId": "course-bcom-001"
+    }
+  ],
+  "subjects": [
+    {
+      "id": "sub-ba-1-mjc",
+      "code": "BA-HINDI-1",
+      "name": "Hindi Literature",
+      "type": "MJC",
+      "semesterId": "sem-ba-1",
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sub-ba-1-mic",
+      "code": "BA-ENG-1",
+      "name": "English",
+      "type": "MIC",
+      "semesterId": "sem-ba-1",
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sub-ba-1-mdc",
+      "code": "BA-POL-1",
+      "name": "Political Science",
+      "type": "MDC",
+      "semesterId": "sem-ba-1",
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sub-ba-1-sec1",
+      "code": "BA-ECON-1",
+      "name": "Economics",
+      "type": "SEC",
+      "semesterId": "sem-ba-1",
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sub-ba-1-sec2",
+      "code": "BA-HIST-1",
+      "name": "History",
+      "type": "SEC",
+      "semesterId": "sem-ba-1",
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sub-ba-1-vac1",
+      "code": "BA-ART-1",
+      "name": "Art Appreciation",
+      "type": "VAC",
+      "semesterId": "sem-ba-1",
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sub-bsc-1-mjc",
+      "code": "BSC-PHY-1",
+      "name": "Physics",
+      "type": "MJC",
+      "semesterId": "sem-bsc-1",
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sub-bsc-1-mic",
+      "code": "BSC-CHEM-1",
+      "name": "Chemistry",
+      "type": "MIC",
+      "semesterId": "sem-bsc-1",
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sub-bsc-1-mdc",
+      "code": "BSC-MATH-1",
+      "name": "Mathematics",
+      "type": "MDC",
+      "semesterId": "sem-bsc-1",
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sub-bsc-1-sec1",
+      "code": "BSC-BIO-1",
+      "name": "Biology",
+      "type": "SEC",
+      "semesterId": "sem-bsc-1",
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sub-bsc-1-vac1",
+      "code": "BSC-COMP-1",
+      "name": "Computer Science",
+      "type": "VAC",
+      "semesterId": "sem-bsc-1",
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sub-bcom-1-mjc",
+      "code": "BCOM-FIN-1",
+      "name": "Financial Accounting",
+      "type": "MJC",
+      "semesterId": "sem-bcom-1",
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "sub-bcom-1-mic",
+      "code": "BCOM-BM-1",
+      "name": "Business Mathematics",
+      "type": "MIC",
+      "semesterId": "sem-bcom-1",
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "sub-bcom-1-mdc",
+      "code": "BCOM-ECO-1",
+      "name": "Economics",
+      "type": "MDC",
+      "semesterId": "sem-bcom-1",
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "sub-bcom-1-sec1",
+      "code": "BCOM-BP-1",
+      "name": "Business Psychology",
+      "type": "SEC",
+      "semesterId": "sem-bcom-1",
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "sub-ba-2-mjc",
+      "code": "BA-SANSKRIT-2",
+      "name": "Sanskrit",
+      "type": "MJC",
+      "semesterId": "sem-ba-2",
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sub-bsc-2-mjc",
+      "code": "BSC-PHY-2",
+      "name": "Physics II",
+      "type": "MJC",
+      "semesterId": "sem-bsc-2",
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sub-bcom-2-mjc",
+      "code": "BCOM-COST-2",
+      "name": "Cost Accounting",
+      "type": "MJC",
+      "semesterId": "sem-bcom-2",
+      "courseId": "course-bcom-001"
+    },
+    {
+      "id": "sub-ba-3-mjc",
+      "code": "BA-PHILOSOPHY-3",
+      "name": "Philosophy",
+      "type": "MJC",
+      "semesterId": "sem-ba-3",
+      "courseId": "course-ba-001"
+    },
+    {
+      "id": "sub-bsc-3-mjc",
+      "code": "BSC-ZOOLOGY-3",
+      "name": "Zoology",
+      "type": "MJC",
+      "semesterId": "sem-bsc-3",
+      "courseId": "course-bsc-001"
+    },
+    {
+      "id": "sub-bcom-3-mjc",
+      "code": "BCOM-AUDIT-3",
+      "name": "Auditing",
+      "type": "MJC",
+      "semesterId": "sem-bcom-3",
+      "courseId": "course-bcom-001"
+    }
+  ],
+  "students": [
+    {
+      "id": "std-001",
+      "reg_no": "REG2026001",
+      "email": "rahul.sharma@example.com",
+      "uan_no": "UAN2026001",
+      "name": "Rahul Sharma",
+      "phone": "9876543210",
+      "dob": "2004-05-15",
+      "fatherName": "Ramesh Sharma",
+      "gender": "MALE",
+      "category": "GENERAL",
+      "address": "123 MG Road, New Delhi",
+      "courseId": "course-bsc-001",
+      "sessionId": "session-2026-2029",
+      "status": "ACTIVE",
+      "class_roll": "BSC-001"
+    },
+    {
+      "id": "std-002",
+      "reg_no": "REG2026002",
+      "email": "priya.singh@example.com",
+      "uan_no": "UAN2026002",
+      "name": "Priya Singh",
+      "phone": "9876543211",
+      "dob": "2004-08-22",
+      "fatherName": "Rajesh Singh",
+      "gender": "FEMALE",
+      "category": "SC",
+      "address": "456 Connaught Place, New Delhi",
+      "courseId": "course-ba-001",
+      "sessionId": "session-2026-2030",
+      "status": "ACTIVE",
+      "class_roll": "BA-001"
+    },
+    {
+      "id": "std-003",
+      "reg_no": "REG2026003",
+      "email": "arjun.patel@example.com",
+      "uan_no": "UAN2026003",
+      "name": "Arjun Patel",
+      "phone": "9876543212",
+      "dob": "2004-12-10",
+      "fatherName": "Sanjay Patel",
+      "gender": "MALE",
+      "category": "OBC",
+      "address": "789 Civil Lines, Mumbai",
+      "courseId": "course-bcom-001",
+      "sessionId": "session-2026-2029",
+      "status": "ACTIVE",
+      "class_roll": "BCOM-001"
+    },
+    {
+      "id": "std-004",
+      "reg_no": "REG2026004",
+      "email": "ananya.desai@example.com",
+      "uan_no": "UAN2026004",
+      "name": "Ananya Desai",
+      "phone": "9876543213",
+      "dob": "2004-03-05",
+      "fatherName": "Vikram Desai",
+      "gender": "FEMALE",
+      "category": "GENERAL",
+      "address": "101 Marine Drive, Mumbai",
+      "courseId": "course-bsc-001",
+      "sessionId": "session-2026-2029",
+      "status": "ACTIVE",
+      "class_roll": "BSC-002"
+    },
+    {
+      "id": "std-005",
+      "reg_no": "REG2026005",
+      "email": "vikram.kumar@example.com",
+      "uan_no": "UAN2026005",
+      "name": "Vikram Kumar",
+      "phone": "9876543214",
+      "dob": "2004-07-18",
+      "fatherName": "Raj Kumar",
+      "gender": "MALE",
+      "category": "EWS",
+      "address": "202 MG Road, Bangalore",
+      "courseId": "course-ba-001",
+      "sessionId": "session-2026-2030",
+      "status": "ACTIVE",
+      "class_roll": "BA-002"
+    },
+    {
+      "id": "std-006",
+      "reg_no": "REG2026006",
+      "email": "sneha.menon@example.com",
+      "uan_no": "UAN2026006",
+      "name": "Sneha Menon",
+      "phone": "9876543215",
+      "dob": "2004-11-30",
+      "fatherName": "Narayan Menon",
+      "gender": "FEMALE",
+      "category": "GENERAL",
+      "address": "303 Brigade Road, Bangalore",
+      "courseId": "course-bcom-001",
+      "sessionId": "session-2026-2029",
+      "status": "ACTIVE",
+      "class_roll": "BCOM-002"
+    },
+    {
+      "id": "std-007",
+      "reg_no": "REG2026007",
+      "email": "rohit.gupta@example.com",
+      "uan_no": "UAN2026007",
+      "name": "Rohit Gupta",
+      "phone": "9876543216",
+      "dob": "2004-01-25",
+      "fatherName": "Ashok Gupta",
+      "gender": "MALE",
+      "category": "BC_I",
+      "address": "404 Anna Salai, Chennai",
+      "courseId": "course-bsc-001",
+      "sessionId": "session-2026-2029",
+      "status": "ACTIVE",
+      "class_roll": "BSC-003"
+    },
+    {
+      "id": "std-008",
+      "reg_no": "REG2026008",
+      "email": "kavya.nair@example.com",
+      "uan_no": "UAN2026008",
+      "name": "Kavya Nair",
+      "phone": "9876543217",
+      "dob": "2004-09-12",
+      "fatherName": "Madhavan Nair",
+      "gender": "FEMALE",
+      "category": "ST",
+      "address": "505 MG Road, Kochi",
+      "courseId": "course-ba-001",
+      "sessionId": "session-2026-2030",
+      "status": "ACTIVE",
+      "class_roll": "BA-003"
+    }
+  ],
+  "admissions": [
+    {
+      "id": "admission-001",
+      "studentId": "std-001",
+      "courseId": "course-bsc-001",
+      "status": "CONFIRMED",
+      "meritListType": "MeritList_01",
+      "profileNo": "PROF-001",
+      "confidentialNo": "CONF-001",
+      "admissionNo": "ADM-2026-001"
+    },
+    {
+      "id": "admission-002",
+      "studentId": "std-002",
+      "courseId": "course-ba-001",
+      "status": "CONFIRMED",
+      "meritListType": "MeritList_02",
+      "profileNo": "PROF-002",
+      "confidentialNo": "CONF-002",
+      "admissionNo": "ADM-2026-002"
+    },
+    {
+      "id": "admission-003",
+      "studentId": "std-003",
+      "courseId": "course-bcom-001",
+      "status": "CONFIRMED",
+      "meritListType": "MeritList_03",
+      "profileNo": "PROF-003",
+      "confidentialNo": "CONF-003",
+      "admissionNo": "ADM-2026-003"
+    },
+    {
+      "id": "admission-004",
+      "studentId": "std-004",
+      "courseId": "course-bsc-001",
+      "status": "CONFIRMED",
+      "meritListType": "MeritList_01",
+      "profileNo": "PROF-004",
+      "confidentialNo": "CONF-004",
+      "admissionNo": "ADM-2026-004"
+    },
+    {
+      "id": "admission-005",
+      "studentId": "std-005",
+      "courseId": "course-ba-001",
+      "status": "CONFIRMED",
+      "meritListType": "MeritList_02",
+      "profileNo": "PROF-005",
+      "confidentialNo": "CONF-005",
+      "admissionNo": "ADM-2026-005"
+    },
+    {
+      "id": "admission-006",
+      "studentId": "std-006",
+      "courseId": "course-bcom-001",
+      "status": "CONFIRMED",
+      "meritListType": "MeritList_03",
+      "profileNo": "PROF-006",
+      "confidentialNo": "CONF-006",
+      "admissionNo": "ADM-2026-006"
+    },
+    {
+      "id": "admission-007",
+      "studentId": "std-007",
+      "courseId": "course-bsc-001",
+      "status": "CONFIRMED",
+      "meritListType": "MeritList_01",
+      "profileNo": "PROF-007",
+      "confidentialNo": "CONF-007",
+      "admissionNo": "ADM-2026-007"
+    },
+    {
+      "id": "admission-008",
+      "studentId": "std-008",
+      "courseId": "course-ba-001",
+      "status": "CONFIRMED",
+      "meritListType": "MeritList_02",
+      "profileNo": "PROF-008",
+      "confidentialNo": "CONF-008",
+      "admissionNo": "ADM-2026-008"
+    }
+  ],
+  "payments": [
+    {
+      "id": "payment-001",
+      "studentId": "std-001",
+      "admissionId": "admission-001",
+      "totalAmount": 50000.00,
+      "status": "SUCCESS",
+      "gateway": "razorpay",
+      "txnId": "TXN0012026",
+      "referenceNo": "REF001",
+      "receiptNo": "RCT-001",
+      "bankTxnNo": "BNK001"
+    },
+    {
+      "id": "payment-002",
+      "studentId": "std-002",
+      "admissionId": "admission-002",
+      "totalAmount": 35000.00,
+      "status": "SUCCESS",
+      "gateway": "razorpay",
+      "txnId": "TXN0022026",
+      "referenceNo": "REF002",
+      "receiptNo": "RCT-002",
+      "bankTxnNo": "BNK002"
+    },
+    {
+      "id": "payment-003",
+      "studentId": "std-003",
+      "admissionId": "admission-003",
+      "totalAmount": 40000.00,
+      "status": "SUCCESS",
+      "gateway": "razorpay",
+      "txnId": "TXN0032026",
+      "referenceNo": "REF003",
+      "receiptNo": "RCT-003",
+      "bankTxnNo": "BNK003"
+    },
+    {
+      "id": "payment-004",
+      "studentId": "std-004",
+      "admissionId": "admission-004",
+      "totalAmount": 50000.00,
+      "status": "SUCCESS",
+      "gateway": "razorpay",
+      "txnId": "TXN0042026",
+      "referenceNo": "REF004",
+      "receiptNo": "RCT-004",
+      "bankTxnNo": "BNK004"
+    },
+    {
+      "id": "payment-005",
+      "studentId": "std-005",
+      "admissionId": "admission-005",
+      "totalAmount": 35000.00,
+      "status": "SUCCESS",
+      "gateway": "razorpay",
+      "txnId": "TXN0052026",
+      "referenceNo": "REF005",
+      "receiptNo": "RCT-005",
+      "bankTxnNo": "BNK005"
+    },
+    {
+      "id": "payment-006",
+      "studentId": "std-006",
+      "admissionId": "admission-006",
+      "totalAmount": 40000.00,
+      "status": "SUCCESS",
+      "gateway": "razorpay",
+      "txnId": "TXN0062026",
+      "referenceNo": "REF006",
+      "receiptNo": "RCT-006",
+      "bankTxnNo": "BNK006"
+    },
+    {
+      "id": "payment-007",
+      "studentId": "std-007",
+      "admissionId": "admission-007",
+      "totalAmount": 50000.00,
+      "status": "SUCCESS",
+      "gateway": "razorpay",
+      "txnId": "TXN0072026",
+      "referenceNo": "REF007",
+      "receiptNo": "RCT-007",
+      "bankTxnNo": "BNK007"
+    },
+    {
+      "id": "payment-008",
+      "studentId": "std-008",
+      "admissionId": "admission-008",
+      "totalAmount": 35000.00,
+      "status": "SUCCESS",
+      "gateway": "razorpay",
+      "txnId": "TXN0082026",
+      "referenceNo": "REF008",
+      "receiptNo": "RCT-008",
+      "bankTxnNo": "BNK008"
+    }
+  ],
+  "paymentBreakups": [
+    {
+      "id": "breakup-001-1",
+      "paymentId": "payment-001",
+      "head": "TUITION",
+      "amount": 30000.00
+    },
+    {
+      "id": "breakup-001-2",
+      "paymentId": "payment-001",
+      "head": "EXAM",
+      "amount": 10000.00
+    },
+    {
+      "id": "breakup-001-3",
+      "paymentId": "payment-001",
+      "head": "INFRASTRUCTURE",
+      "amount": 10000.00
+    },
+    {
+      "id": "breakup-002-1",
+      "paymentId": "payment-002",
+      "head": "TUITION",
+      "amount": 20000.00
+    },
+    {
+      "id": "breakup-002-2",
+      "paymentId": "payment-002",
+      "head": "EXAM",
+      "amount": 8000.00
+    },
+    {
+      "id": "breakup-002-3",
+      "paymentId": "payment-002",
+      "head": "INFRASTRUCTURE",
+      "amount": 7000.00
+    },
+    {
+      "id": "breakup-003-1",
+      "paymentId": "payment-003",
+      "head": "TUITION",
+      "amount": 25000.00
+    },
+    {
+      "id": "breakup-003-2",
+      "paymentId": "payment-003",
+      "head": "EXAM",
+      "amount": 8000.00
+    },
+    {
+      "id": "breakup-003-3",
+      "paymentId": "payment-003",
+      "head": "INFRASTRUCTURE",
+      "amount": 7000.00
+    },
+    {
+      "id": "breakup-004-1",
+      "paymentId": "payment-004",
+      "head": "TUITION",
+      "amount": 30000.00
+    },
+    {
+      "id": "breakup-004-2",
+      "paymentId": "payment-004",
+      "head": "EXAM",
+      "amount": 10000.00
+    },
+    {
+      "id": "breakup-004-3",
+      "paymentId": "payment-004",
+      "head": "INFRASTRUCTURE",
+      "amount": 10000.00
+    },
+    {
+      "id": "breakup-005-1",
+      "paymentId": "payment-005",
+      "head": "TUITION",
+      "amount": 20000.00
+    },
+    {
+      "id": "breakup-005-2",
+      "paymentId": "payment-005",
+      "head": "EXAM",
+      "amount": 8000.00
+    },
+    {
+      "id": "breakup-005-3",
+      "paymentId": "payment-005",
+      "head": "INFRASTRUCTURE",
+      "amount": 7000.00
+    },
+    {
+      "id": "breakup-006-1",
+      "paymentId": "payment-006",
+      "head": "TUITION",
+      "amount": 25000.00
+    },
+    {
+      "id": "breakup-006-2",
+      "paymentId": "payment-006",
+      "head": "EXAM",
+      "amount": 8000.00
+    },
+    {
+      "id": "breakup-006-3",
+      "paymentId": "payment-006",
+      "head": "INFRASTRUCTURE",
+      "amount": 7000.00
+    },
+    {
+      "id": "breakup-007-1",
+      "paymentId": "payment-007",
+      "head": "TUITION",
+      "amount": 30000.00
+    },
+    {
+      "id": "breakup-007-2",
+      "paymentId": "payment-007",
+      "head": "EXAM",
+      "amount": 10000.00
+    },
+    {
+      "id": "breakup-007-3",
+      "paymentId": "payment-007",
+      "head": "INFRASTRUCTURE",
+      "amount": 10000.00
+    },
+    {
+      "id": "breakup-008-1",
+      "paymentId": "payment-008",
+      "head": "TUITION",
+      "amount": 20000.00
+    },
+    {
+      "id": "breakup-008-2",
+      "paymentId": "payment-008",
+      "head": "EXAM",
+      "amount": 8000.00
+    },
+    {
+      "id": "breakup-008-3",
+      "paymentId": "payment-008",
+      "head": "INFRASTRUCTURE",
+      "amount": 7000.00
+    }
+  ],
+  "studentSemesters": [
+    {
+      "id": "std-sem-001-1",
+      "studentId": "std-001",
+      "semesterId": "sem-bsc-1",
+      "status": "ONGOING",
+      "feePaid": true,
+      "startDate": "2026-08-15",
+      "endDate": null
+    },
+    {
+      "id": "std-sem-002-1",
+      "studentId": "std-002",
+      "semesterId": "sem-ba-1",
+      "status": "ONGOING",
+      "feePaid": true,
+      "startDate": "2026-08-15",
+      "endDate": null
+    },
+    {
+      "id": "std-sem-003-1",
+      "studentId": "std-003",
+      "semesterId": "sem-bcom-1",
+      "status": "ONGOING",
+      "feePaid": true,
+      "startDate": "2026-08-15",
+      "endDate": null
+    },
+    {
+      "id": "std-sem-004-1",
+      "studentId": "std-004",
+      "semesterId": "sem-bsc-1",
+      "status": "ONGOING",
+      "feePaid": true,
+      "startDate": "2026-08-15",
+      "endDate": null
+    },
+    {
+      "id": "std-sem-005-1",
+      "studentId": "std-005",
+      "semesterId": "sem-ba-1",
+      "status": "ONGOING",
+      "feePaid": true,
+      "startDate": "2026-08-15",
+      "endDate": null
+    },
+    {
+      "id": "std-sem-006-1",
+      "studentId": "std-006",
+      "semesterId": "sem-bcom-1",
+      "status": "ONGOING",
+      "feePaid": true,
+      "startDate": "2026-08-15",
+      "endDate": null
+    },
+    {
+      "id": "std-sem-007-1",
+      "studentId": "std-007",
+      "semesterId": "sem-bsc-1",
+      "status": "ONGOING",
+      "feePaid": true,
+      "startDate": "2026-08-15",
+      "endDate": null
+    },
+    {
+      "id": "std-sem-008-1",
+      "studentId": "std-008",
+      "semesterId": "sem-ba-1",
+      "status": "ONGOING",
+      "feePaid": true,
+      "startDate": "2026-08-15",
+      "endDate": null
+    }
+  ],
+  "studentSubjects": [
+    {
+      "id": "std-sub-001-1",
+      "studentId": "std-001",
+      "subjectId": "sub-bsc-1-mjc",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-001-2",
+      "studentId": "std-001",
+      "subjectId": "sub-bsc-1-mic",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-001-3",
+      "studentId": "std-001",
+      "subjectId": "sub-bsc-1-mdc",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-001-4",
+      "studentId": "std-001",
+      "subjectId": "sub-bsc-1-sec1",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-001-5",
+      "studentId": "std-001",
+      "subjectId": "sub-bsc-1-vac1",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-002-1",
+      "studentId": "std-002",
+      "subjectId": "sub-ba-1-mjc",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-002-2",
+      "studentId": "std-002",
+      "subjectId": "sub-ba-1-mic",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-002-3",
+      "studentId": "std-002",
+      "subjectId": "sub-ba-1-mdc",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-002-4",
+      "studentId": "std-002",
+      "subjectId": "sub-ba-1-sec1",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-002-5",
+      "studentId": "std-002",
+      "subjectId": "sub-ba-1-vac1",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-003-1",
+      "studentId": "std-003",
+      "subjectId": "sub-bcom-1-mjc",
+      "semesterId": "sem-bcom-1"
+    },
+    {
+      "id": "std-sub-003-2",
+      "studentId": "std-003",
+      "subjectId": "sub-bcom-1-mic",
+      "semesterId": "sem-bcom-1"
+    },
+    {
+      "id": "std-sub-003-3",
+      "studentId": "std-003",
+      "subjectId": "sub-bcom-1-mdc",
+      "semesterId": "sem-bcom-1"
+    },
+    {
+      "id": "std-sub-003-4",
+      "studentId": "std-003",
+      "subjectId": "sub-bcom-1-sec1",
+      "semesterId": "sem-bcom-1"
+    },
+    {
+      "id": "std-sub-004-1",
+      "studentId": "std-004",
+      "subjectId": "sub-bsc-1-mjc",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-004-2",
+      "studentId": "std-004",
+      "subjectId": "sub-bsc-1-mic",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-004-3",
+      "studentId": "std-004",
+      "subjectId": "sub-bsc-1-mdc",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-004-4",
+      "studentId": "std-004",
+      "subjectId": "sub-bsc-1-sec1",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-004-5",
+      "studentId": "std-004",
+      "subjectId": "sub-bsc-1-vac1",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-005-1",
+      "studentId": "std-005",
+      "subjectId": "sub-ba-1-mjc",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-005-2",
+      "studentId": "std-005",
+      "subjectId": "sub-ba-1-mic",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-005-3",
+      "studentId": "std-005",
+      "subjectId": "sub-ba-1-mdc",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-005-4",
+      "studentId": "std-005",
+      "subjectId": "sub-ba-1-sec1",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-005-5",
+      "studentId": "std-005",
+      "subjectId": "sub-ba-1-vac1",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-006-1",
+      "studentId": "std-006",
+      "subjectId": "sub-bcom-1-mjc",
+      "semesterId": "sem-bcom-1"
+    },
+    {
+      "id": "std-sub-006-2",
+      "studentId": "std-006",
+      "subjectId": "sub-bcom-1-mic",
+      "semesterId": "sem-bcom-1"
+    },
+    {
+      "id": "std-sub-006-3",
+      "studentId": "std-006",
+      "subjectId": "sub-bcom-1-mdc",
+      "semesterId": "sem-bcom-1"
+    },
+    {
+      "id": "std-sub-006-4",
+      "studentId": "std-006",
+      "subjectId": "sub-bcom-1-sec1",
+      "semesterId": "sem-bcom-1"
+    },
+    {
+      "id": "std-sub-007-1",
+      "studentId": "std-007",
+      "subjectId": "sub-bsc-1-mjc",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-007-2",
+      "studentId": "std-007",
+      "subjectId": "sub-bsc-1-mic",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-007-3",
+      "studentId": "std-007",
+      "subjectId": "sub-bsc-1-mdc",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-007-4",
+      "studentId": "std-007",
+      "subjectId": "sub-bsc-1-sec1",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-007-5",
+      "studentId": "std-007",
+      "subjectId": "sub-bsc-1-vac1",
+      "semesterId": "sem-bsc-1"
+    },
+    {
+      "id": "std-sub-008-1",
+      "studentId": "std-008",
+      "subjectId": "sub-ba-1-mjc",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-008-2",
+      "studentId": "std-008",
+      "subjectId": "sub-ba-1-mic",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-008-3",
+      "studentId": "std-008",
+      "subjectId": "sub-ba-1-mdc",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-008-4",
+      "studentId": "std-008",
+      "subjectId": "sub-ba-1-sec1",
+      "semesterId": "sem-ba-1"
+    },
+    {
+      "id": "std-sub-008-5",
+      "studentId": "std-008",
+      "subjectId": "sub-ba-1-vac1",
+      "semesterId": "sem-ba-1"
+    }
+  ],
+  "certificateRequests": [
+    {
+      "id": "cert-001",
+      "studentId": "std-001",
+      "type": "BONAFIDE",
+      "purpose": "Bank loan application",
+      "departmentId": "dept-science-001",
+      "status": "ISSUED",
+      "approvedById": "admin-001",
+      "issuedAt": "2026-10-15",
+      "pdfUrl": "/certificates/bonafide-001.pdf"
+    },
+    {
+      "id": "cert-002",
+      "studentId": "std-002",
+      "type": "CLC",
+      "purpose": "Job application",
+      "departmentId": "dept-arts-001",
+      "status": "APPROVED",
+      "approvedById": "admin-001",
+      "issuedAt": null,
+      "pdfUrl": null
+    },
+    {
+      "id": "cert-003",
+      "studentId": "std-003",
+      "type": "BONAFIDE",
+      "purpose": "Scholarship application",
+      "departmentId": "dept-commerce-001",
+      "status": "PENDING",
+      "approvedById": null,
+      "issuedAt": null,
+      "pdfUrl": null
+    },
+    {
+      "id": "cert-004",
+      "studentId": "std-004",
+      "type": "CLC",
+      "purpose": "Higher education admission",
+      "departmentId": "dept-science-001",
+      "status": "ISSUED",
+      "approvedById": "admin-001",
+      "issuedAt": "2026-10-20",
+      "pdfUrl": "/certificates/clc-004.pdf"
+    },
+    {
+      "id": "cert-005",
+      "studentId": "std-005",
+      "type": "BONAFIDE",
+      "purpose": "Passport application",
+      "departmentId": "dept-arts-001",
+      "status": "REJECTED",
+      "approvedById": "admin-001",
+      "issuedAt": null,
+      "pdfUrl": null,
+      "reason": "Incomplete documentation"
+    },
+    {
+      "id": "cert-006",
+      "studentId": "std-006",
+      "type": "CLC",
+      "purpose": "Employment verification",
+      "departmentId": "dept-commerce-001",
+      "status": "PENDING",
+      "approvedById": null,
+      "issuedAt": null,
+      "pdfUrl": null
+    },
+    {
+      "id": "cert-007",
+      "studentId": "std-007",
+      "type": "BONAFIDE",
+      "purpose": "Education loan",
+      "departmentId": "dept-science-001",
+      "status": "ISSUED",
+      "approvedById": "admin-001",
+      "issuedAt": "2026-10-25",
+      "pdfUrl": "/certificates/bonafide-007.pdf"
+    },
+    {
+      "id": "cert-008",
+      "studentId": "std-008",
+      "type": "CLC",
+      "purpose": "Course completion verification",
+      "departmentId": "dept-arts-001",
+      "status": "APPROVED",
+      "approvedById": "admin-001",
+      "issuedAt": null,
+      "pdfUrl": null
+    }
+  ]
+}
