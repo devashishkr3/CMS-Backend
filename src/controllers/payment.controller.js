@@ -6,8 +6,10 @@ const {
   refundPayment 
 } = require('../validation/payment.validation');
 const axios = require("axios");
+const fs = require("fs");
 const GcmPgEncryption = require("../utils/getepayEncrypt");
 const { generateReceiptAndCertificate } = require("./receipt.controller");
+const { generateReceiptPDF } = require("../utils/pdfGenerator");
 
 const GATEWAY_SUCCESS = "SUCCESS";
 const GATEWAY_FAILED = "FAILED";
@@ -17,8 +19,15 @@ const normalizeTxnStatus = (status) => {
   return String(status).trim().toUpperCase();
 };
 
+const normalizeEncryptedResponse = (value) => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  // Gateways sometimes post form-urlencoded where '+' becomes space.
+  return raw.includes(" ") ? raw.replace(/ /g, "+") : raw;
+};
+
 const getEncryptedGatewayResponse = (req) => {
-  return (
+  return normalizeEncryptedResponse(
     req.body?.response ||
     req.body?.resp ||
     req.query?.response ||
@@ -34,7 +43,11 @@ const parseGatewayResponseFields = (decrypted) => {
       decrypted.merchantTransactionId ||
       decrypted.merchantTxnId ||
       null,
-    txnStatus: normalizeTxnStatus(decrypted.txnStatus || decrypted.status),
+    txnStatus: normalizeTxnStatus(
+      decrypted.txnStatus ||
+      decrypted.paymentStatus ||
+      decrypted.status
+    ),
     getepayTxnId:
       decrypted.getepayTxnId ||
       decrypted.bankTxnNo ||
@@ -42,13 +55,65 @@ const parseGatewayResponseFields = (decrypted) => {
       null,
     paymentMode: decrypted.paymentMode || null,
     txnDate: decrypted.txnDate || null,
-    txnAmount: decrypted.txnAmount || null,
+    txnAmount: decrypted.txnAmount || decrypted.totalAmount || null,
     errorMessage: decrypted.message || decrypted.errorMessage || null
   };
 };
 
+const isUsableAbsoluteUrl = (value) => {
+  if (!value || value === "*" || value === "undefined" || value === "null") {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+const getPrimaryFrontendBase = () => {
+  const raw = String(process.env.FRONTEND_URL || "").trim();
+  const candidates = raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const usable = candidates.find(isUsableAbsoluteUrl);
+  return usable || "http://localhost:5173";
+};
+
+const getBackendPublicBase = (req) => {
+  const configured = String(process.env.BACKEND_PUBLIC_URL || "").trim();
+  if (isUsableAbsoluteUrl(configured)) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  if (req?.protocol && req?.get) {
+    return `${req.protocol}://${req.get("host")}`;
+  }
+
+  return "http://localhost:8080";
+};
+
+const buildGatewayReturnOrCallbackUrl = (req, type, paymentId) => {
+  const envKey = type === "callback" ? "GETEPAY_CALLBACK_URL" : "GETEPAY_RETURN_URL";
+  const configured = String(process.env[envKey] || "").trim();
+  const base =
+    isUsableAbsoluteUrl(configured)
+      ? configured
+      : `${getBackendPublicBase(req)}/api/v1/payments/${type === "callback" ? "callback" : "return"}`;
+
+  const url = new URL(base);
+  if (paymentId) {
+    url.searchParams.set("paymentId", paymentId);
+  }
+  return url.toString();
+};
+
 const buildProcessingRedirectUrl = (paymentId, extraQuery = {}) => {
-  const frontendBase = process.env.FRONTEND_URL || "http://localhost:3000";
+  const frontendBase = getPrimaryFrontendBase();
   const hasProcessingPath = /\/payment-processing\/?$/.test(frontendBase);
   const redirectBase = hasProcessingPath
     ? frontendBase
@@ -67,6 +132,64 @@ const buildProcessingRedirectUrl = (paymentId, extraQuery = {}) => {
   });
 
   return redirectUrl.toString();
+};
+
+const parseCurrencyAmount = (value) => {
+  if (value === undefined || value === null) return null;
+  const cleaned = String(value).replace(/,/g, "").trim();
+  const amount = Number(cleaned);
+  return Number.isFinite(amount) ? amount : null;
+};
+
+const isAmountMismatch = (expected, received, tolerance = 0.01) => {
+  if (!Number.isFinite(expected) || !Number.isFinite(received)) return false;
+  return Math.abs(expected - received) > tolerance;
+};
+
+const statusPriority = {
+  PENDING: 0,
+  INITIATED: 1,
+  FAILED: 2,
+  SUCCESS: 3,
+  REFUNDED: 4
+};
+
+const shouldApplyStatusUpdate = (currentStatus, nextStatus) => {
+  const current = statusPriority[currentStatus] ?? -1;
+  const next = statusPriority[nextStatus] ?? -1;
+  return next >= current;
+};
+
+const resolveInternalPaymentStatus = (gatewayStatus) => {
+  if (gatewayStatus === GATEWAY_SUCCESS) return "SUCCESS";
+  if (gatewayStatus === GATEWAY_FAILED) return "FAILED";
+  return "PENDING";
+};
+
+const isGatewayIdentityValid = (decrypted) => {
+  const configuredMid = String(process.env.GETEPAY_MID || "").trim();
+  const configuredTerminal = String(process.env.GETEPAY_TERMINAL_ID || "").trim();
+
+  const responseMid = decrypted?.mid || decrypted?.merchantId || decrypted?.merchantCode || "";
+  const responseTerminal = decrypted?.terminalId || decrypted?.terminal || "";
+
+  const midMatches = !responseMid || !configuredMid || String(responseMid).trim() === configuredMid;
+  const terminalMatches =
+    !responseTerminal || !configuredTerminal || String(responseTerminal).trim() === configuredTerminal;
+
+  return midMatches && terminalMatches;
+};
+
+const triggerReceiptGenerationAsync = (paymentId, source) => {
+  setImmediate(async () => {
+    try {
+      console.log(`📄 [${source}] Async receipt/certificate generation started for ${paymentId}`);
+      await generateReceiptAndCertificate(paymentId);
+      console.log(`✅ [${source}] Async receipt/certificate generation completed for ${paymentId}`);
+    } catch (err) {
+      console.warn(`⚠️  [${source}] Async receipt/certificate generation failed:`, err.message);
+    }
+  });
 };
 
 /**
@@ -304,10 +427,7 @@ exports.getPayment = async (req, res, next) => {
           select: {
             id: true,
             name: true,
-            email: true,
-            reg_no: true,
-            phone: true,
-            address: true
+            reg_no: true
           }
         },
         admission: {
@@ -324,12 +444,61 @@ exports.getPayment = async (req, res, next) => {
       return next(new AppError('Payment not found', 404));
     }
 
+    if (payment.status === "SUCCESS") {
+      payment.invoiceUrl = payment.receiptUrl || `${getBackendPublicBase(req)}/api/v1/payments/public/${payment.id}/invoice`;
+    }
+
     res.status(200).json({
       status: 'success',
       data: {
         payment
       }
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Download/preview invoice PDF (public)
+ * Access: Public by payment id (UUID); only for SUCCESS payments
+ */
+exports.downloadPublicInvoice = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const payment = await prisma.payment.findUnique({
+      where: { id },
+      include: {
+        student: true,
+        breakups: true
+      }
+    });
+
+    if (!payment) {
+      return next(new AppError("Payment not found", 404));
+    }
+
+    if (payment.status !== "SUCCESS") {
+      return next(new AppError("Invoice available only for successful payments", 400));
+    }
+
+    // Fast path: if receipt was already uploaded, redirect to persisted file.
+    if (payment.receiptUrl) {
+      return res.redirect(payment.receiptUrl);
+    }
+
+    const receiptPath = await generateReceiptPDF(payment);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="Invoice-${payment.receiptNo}.pdf"`);
+
+    const stream = fs.createReadStream(receiptPath);
+    stream.on("error", (err) => next(err));
+    stream.on("close", () => {
+      fs.promises.unlink(receiptPath).catch(() => {});
+    });
+    stream.pipe(res);
   } catch (error) {
     next(error);
   }
@@ -600,14 +769,17 @@ exports.generatePaymentLink = async (req, res, next) => {
     console.log(`✅ Payment found: ${payment.receiptNo}, Amount: ${payment.totalAmount}`);
 
     // Build GetEpay payload
+    const returnUrl = buildGatewayReturnOrCallbackUrl(req, "return", payment.id);
+    const callbackUrl = buildGatewayReturnOrCallbackUrl(req, "callback", payment.id);
+
     const payload = {
       mid: process.env.GETEPAY_MID,
       terminalId: process.env.GETEPAY_TERMINAL_ID,
       amount: payment.totalAmount.toString(),
       merchantTransactionId: payment.txnId,
       transactionDate: new Date().toISOString(),
-      ru: `${process.env.GETEPAY_RETURN_URL}?paymentId=${payment.id}`,
-      callbackUrl: `${process.env.GETEPAY_CALLBACK_URL}?paymentId=${payment.id}`,
+      ru: returnUrl,
+      callbackUrl: callbackUrl,
       currency: "INR",
       paymentMode: "ALL",
       bankId: "455",
@@ -771,14 +943,17 @@ exports.studentGeneratePaymentLink = async (req, res, next) => {
     }
 
     // Build GetEpay payload
+    const returnUrl = buildGatewayReturnOrCallbackUrl(req, "return", payment.id);
+    const callbackUrl = buildGatewayReturnOrCallbackUrl(req, "callback", payment.id);
+
     const payload = {
       mid: process.env.GETEPAY_MID,
       terminalId: process.env.GETEPAY_TERMINAL_ID,
       amount: payment.totalAmount.toString(),
       merchantTransactionId: payment.txnId,
       transactionDate: new Date().toISOString(),
-      ru: `${process.env.GETEPAY_RETURN_URL}?paymentId=${payment.id}`,
-      callbackUrl: `${process.env.GETEPAY_CALLBACK_URL}?paymentId=${payment.id}`,
+      ru: returnUrl,
+      callbackUrl: callbackUrl,
       currency: "INR",
       paymentMode: "ALL",
       bankId: "455",
@@ -841,58 +1016,84 @@ exports.studentGeneratePaymentLink = async (req, res, next) => {
 /**
  * STEP 2: Return URL (Browser Redirect after Payment)
  * This endpoint is called by GetEpay when user completes/cancels payment
+ * GetEpay sends encrypted response in req.body.response
  */
 exports.paymentReturn = async (req, res, next) => {
   try {
+    console.log('\n' + '='.repeat(80));
+    console.log('🔄 [RETURN] ===== PAYMENT RETURN RECEIVED =====');
+    console.log('='.repeat(80));
+    
     let paymentId = req.query.paymentId;
-    let txnStatus = normalizeTxnStatus(req.query.txnStatus || req.query.status);
+    let txnStatus = "INITIATED";
     let getepayTxnId = null;
-    let merchantTxnId = null;
+    let txnAmount = null;
 
+    // Get encrypted response from GetEpay
     const encryptedResponse = getEncryptedGatewayResponse(req);
+    console.log('📦 [RETURN] Encrypted response present?', !!encryptedResponse);
 
-    if ((!paymentId || !txnStatus) && encryptedResponse) {
+    // Decrypt the response if available
+    if (encryptedResponse) {
       try {
         const enc = new GcmPgEncryption(
           process.env.GETEPAY_IV,
           process.env.GETEPAY_KEY
         );
+
+        console.log('🔐 [RETURN] Decrypting response...');
         const decryptedData = await enc.decrypt(encryptedResponse);
         const decrypted = JSON.parse(decryptedData);
-        const parsed = parseGatewayResponseFields(decrypted);
+        
+        console.log('✅ [RETURN] Decryption successful');
+        console.log('📋 [RETURN] Decrypted data:', JSON.stringify(decrypted, null, 2));
 
-        txnStatus = txnStatus || parsed.txnStatus;
-        getepayTxnId = parsed.getepayTxnId;
-        merchantTxnId = parsed.merchantTxnId;
+        if (!isGatewayIdentityValid(decrypted)) {
+          console.error("❌ [RETURN] Gateway identity check failed");
+          return res.redirect(buildProcessingRedirectUrl(null, { error: "invalid_gateway_identity" }));
+        }
 
-        if (!paymentId && parsed.merchantTxnId) {
+        // Extract payment details from decrypted response
+        const parsedResponse = parseGatewayResponseFields(decrypted);
+        txnStatus = parsedResponse.txnStatus || "INITIATED";
+        getepayTxnId = parsedResponse.getepayTxnId;
+        txnAmount = parseCurrencyAmount(parsedResponse.txnAmount);
+        
+        // If paymentId not in query, try to get it from merchantOrderNo (txnId)
+        if (!paymentId && decrypted.merchantOrderNo) {
           const payment = await prisma.payment.findUnique({
-            where: { txnId: parsed.merchantTxnId },
+            where: { txnId: decrypted.merchantOrderNo },
             select: { id: true }
           });
-
           if (payment) {
             paymentId = payment.id;
+            console.log('✅ [RETURN] Found payment by merchantOrderNo:', paymentId);
           }
         }
-      } catch (error) {
-        console.warn("⚠️  [RETURN] Unable to decrypt return payload:", error.message);
+      } catch (decryptError) {
+        console.warn("⚠️  [RETURN] Decryption failed:", decryptError.message);
       }
     }
 
-    // Fallback update: if return URL includes status, persist it immediately.
-    // Callback remains primary, but this keeps status in sync when callback is delayed/unavailable.
+    // Update payment status in database
     if (paymentId && (txnStatus === GATEWAY_SUCCESS || txnStatus === GATEWAY_FAILED)) {
       try {
+        console.log(`📝 [RETURN] Updating payment ${paymentId} to status: ${txnStatus}`);
+        
         const payment = await prisma.payment.findUnique({
           where: { id: paymentId },
-          select: { id: true, status: true, admissionId: true }
+          select: { id: true, status: true, totalAmount: true, admissionId: true, receiptUrl: true }
         });
 
         if (payment) {
-          const nextStatus = txnStatus === GATEWAY_SUCCESS ? "SUCCESS" : "FAILED";
+          const nextStatus = resolveInternalPaymentStatus(txnStatus);
+          const expectedAmount = parseCurrencyAmount(payment.totalAmount);
 
-          if (payment.status !== nextStatus) {
+          if (isAmountMismatch(expectedAmount, txnAmount)) {
+            console.error(
+              `❌ [RETURN] Amount mismatch. expected=${expectedAmount} received=${txnAmount}`
+            );
+          } else if (shouldApplyStatusUpdate(payment.status, nextStatus) && payment.status !== nextStatus) {
             await prisma.payment.update({
               where: { id: paymentId },
               data: {
@@ -902,41 +1103,56 @@ exports.paymentReturn = async (req, res, next) => {
               }
             });
 
+            console.log(`✅ [RETURN] Payment status updated to: ${nextStatus}`);
+
             if (nextStatus === "SUCCESS" && payment.admissionId) {
               await prisma.admission.update({
                 where: { id: payment.admissionId },
                 data: { status: "CONFIRMED" }
               });
+              console.log(`✅ [RETURN] Admission status confirmed`);
             }
+
           }
-        } else if (merchantTxnId) {
-          // Optional fallback by merchant transaction id if paymentId was invalid/stale
-          await prisma.payment.update({
-            where: { txnId: merchantTxnId },
-            data: {
-              status: txnStatus === GATEWAY_SUCCESS ? "SUCCESS" : "FAILED",
-              referenceNo: getepayTxnId || undefined,
-              bankTxnNo: getepayTxnId || undefined
-            }
-          });
+
+          if (nextStatus === "SUCCESS" && !payment.receiptUrl) {
+            console.log(`📄 [RETURN] Queueing receipt/certificate generation...`);
+            triggerReceiptGenerationAsync(payment.id, "RETURN");
+          }
         }
-      } catch (returnUpdateError) {
-        console.warn("⚠️  [RETURN] Failed to update payment status from return payload:", returnUpdateError.message);
+      } catch (updateError) {
+        console.warn("⚠️  [RETURN] Failed to update payment:", updateError.message);
       }
     }
 
+    // Redirect to frontend payment processing page
     if (!paymentId) {
-      return res.redirect(buildProcessingRedirectUrl(null, { error: "missing_payment_id" }));
+      console.error('❌ [RETURN] No payment ID found');
+      return res.redirect(buildProcessingRedirectUrl(null, { error: "payment_not_found" }));
+    }
+
+    let redirectStatus = txnStatus || "INITIATED";
+
+    // If gateway return payload was missing/failed, derive status from DB to avoid INITIATED loops.
+    if (paymentId && redirectStatus === "INITIATED") {
+      const latestPayment = await prisma.payment.findUnique({
+        where: { id: paymentId },
+        select: { status: true }
+      });
+      if (latestPayment?.status) {
+        redirectStatus = latestPayment.status;
+      }
     }
 
     const redirectUrl = buildProcessingRedirectUrl(paymentId, {
-      gatewayStatus: txnStatus || undefined
+      status: redirectStatus
     });
-
     console.log(`✅ [RETURN] Redirecting to: ${redirectUrl}`);
     res.redirect(redirectUrl);
+
   } catch (error) {
     console.error(`❌ [RETURN] Error:`, error.message);
+    console.error('Stack:', error.stack);
     res.redirect(buildProcessingRedirectUrl(null, { error: "server_error" }));
   }
 };
@@ -1006,6 +1222,14 @@ exports.paymentCallback = async (req, res, next) => {
     console.log('📋 [CALLBACK] Decrypted Response Data:');
     console.log(JSON.stringify(decrypted, null, 2));
 
+    if (!isGatewayIdentityValid(decrypted)) {
+      console.error('❌ [CALLBACK] Gateway identity check failed');
+      return res.status(403).json({
+        status: 'error',
+        message: 'Invalid gateway identity'
+      });
+    }
+
     // Extract key fields from GetEpay response
     // According to GetEpay doc Section 12, response contains:
     // - txnStatus: SUCCESS/FAILED
@@ -1066,6 +1290,39 @@ exports.paymentCallback = async (req, res, next) => {
     console.log(`  ├─ Amount: ₹${payment.totalAmount}`);
     console.log(`  └─ Current Status: ${payment.status}`);
 
+    const expectedAmount = parseCurrencyAmount(payment.totalAmount);
+    const receivedAmount = parseCurrencyAmount(txnAmount);
+    if (isAmountMismatch(expectedAmount, receivedAmount)) {
+      console.error(
+        `❌ [CALLBACK] Amount mismatch. expected=${expectedAmount} received=${receivedAmount}`
+      );
+      return res.status(400).json({
+        status: "error",
+        message: "Amount mismatch in gateway callback"
+      });
+    }
+
+    const nextStatus = resolveInternalPaymentStatus(txnStatus);
+    if (!shouldApplyStatusUpdate(payment.status, nextStatus)) {
+      console.log(
+        `ℹ️ [CALLBACK] Ignoring status downgrade ${payment.status} -> ${nextStatus}`
+      );
+      return res.status(200).json({
+        status: "success",
+        message: "Callback received (ignored as non-progressive update)",
+        paymentId: payment.id
+      });
+    }
+
+    if (payment.status === nextStatus) {
+      console.log(`ℹ️ [CALLBACK] Idempotent callback (status already ${nextStatus})`);
+      return res.status(200).json({
+        status: "success",
+        message: "Callback already processed",
+        paymentId: payment.id
+      });
+    }
+
     // ========== HANDLE SUCCESS ==========
     if (txnStatus === GATEWAY_SUCCESS) {
       console.log(`\n💰 [CALLBACK] ===== PAYMENT SUCCESSFUL =====`);
@@ -1100,15 +1357,9 @@ exports.paymentCallback = async (req, res, next) => {
         console.log(`✅ [CALLBACK] Admission confirmed`);
       }
 
-      // Generate receipt and certificate
-      try {
-        console.log(`\n📄 [CALLBACK] Generating receipt and certificate...`);
-        await generateReceiptAndCertificate(payment.id);
-        console.log(`✅ [CALLBACK] Receipt generated`);
-      } catch (err) {
-        console.warn(`⚠️  [CALLBACK] Receipt generation warning:`, err.message);
-        // Don't fail the callback if receipt generation fails
-      }
+      // Do not block callback ACK on PDF generation/upload.
+      console.log(`\n📄 [CALLBACK] Queueing receipt and certificate generation...`);
+      triggerReceiptGenerationAsync(payment.id, "CALLBACK");
 
       // Log successful payment to audit log
       try {

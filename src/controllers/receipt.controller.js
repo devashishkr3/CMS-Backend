@@ -1,4 +1,5 @@
 const prisma = require("../config/prisma");
+const fs = require("fs");
 const { generateReceiptPDF, generateCertificatePDF } = require("../utils/pdfGenerator");
 const { uploadFileToR2 } = require("../utils/uploadToR2");
 
@@ -8,19 +9,34 @@ exports.generateReceiptAndCertificate = async (paymentId) => {
     include: { student: true, admission: true, breakups: true }
   });
 
-  // Receipt
+  if (!payment) {
+    throw new Error("Payment not found");
+  }
+
+  // Receipt (persist URL if upload succeeds)
   const receiptPath = await generateReceiptPDF(payment);
-  const receiptUrl = await uploadFileToR2(receiptPath, `receipts/${payment.receiptNo}.pdf`);
+  let receiptUrl = null;
+  try {
+    receiptUrl = await uploadFileToR2(receiptPath, `receipts/${payment.receiptNo}.pdf`);
+  } catch (err) {
+    // Keep non-fatal: UI can still use on-demand invoice endpoint.
+    console.warn("Receipt upload failed:", err.message);
+  }
 
-  // Certificate
-  const certPath = await generateCertificatePDF(payment.student, payment.admission);
-  const certUrl = await uploadFileToR2(certPath, `certificates/${payment.student.reg_no}.pdf`);
+  if (receiptUrl) {
+    await prisma.payment.update({
+      where: { id: paymentId },
+      data: { receiptUrl }
+    });
+  }
+  fs.promises.unlink(receiptPath).catch(() => {});
 
-  await prisma.payment.update({
-    where: { id: paymentId },
-    data: {
-      receiptUrl,
-      certificateUrl: certUrl
-    }
-  });
+  // Certificate generation should not block payment receipt flow.
+  try {
+    const certPath = await generateCertificatePDF(payment.student, payment.admission);
+    await uploadFileToR2(certPath, `certificates/${payment.student.reg_no}.pdf`);
+    fs.promises.unlink(certPath).catch(() => {});
+  } catch (err) {
+    console.warn("Certificate generation/upload failed:", err.message);
+  }
 };

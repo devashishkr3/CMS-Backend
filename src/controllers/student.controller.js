@@ -804,6 +804,39 @@ exports.deleteStudent = async (req, res, next) => {
 };
 
 /**
+ * Clear payment status for all students (test utility)
+ * Access: ADMIN, HOD
+ */
+exports.clearAllStudentPaymentStatuses = async (req, res, next) => {
+  try {
+    const result = await prisma.payment.updateMany({
+      data: {
+        status: 'PENDING'
+      }
+    });
+
+    await logAudit({
+      userId: req.user.id,
+      action: 'CLEAR_ALL_PAYMENT_STATUSES',
+      entity: 'Payment',
+      entityId: 'bulk',
+      payload: { updatedCount: result.count, newStatus: 'PENDING' },
+      req
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Payment status cleared for all students',
+      data: {
+        updatedCount: result.count
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Assign semester to student
  * Access: ADMIN, HOD
  */
