@@ -1,160 +1,123 @@
-# College ERP Backend System
+# File Management System
 
-A comprehensive College ERP (Enterprise Resource Planning) system built with Node.js, Express, and PostgreSQL using Prisma ORM. This system manages all aspects of college operations including student management, admissions, payments, certificates, and content management.
+## Overview
+This document provides a comprehensive guide to the file management system implemented in the CMS-Backend project. This system facilitates file uploads to Cloudflare R2, handling presigned URLs for secure access, and provides methods for file management including downloads, deletions, and verification.
 
-## 🚀 Features
+## API Documentation
 
-### Student Management
-- Complete student lifecycle management
-- Registration and profile management
-- Semester assignment and tracking
-- Status management (Active, Suspended, Alumni, etc.)
+### 1. Upload File to Cloudflare R2
+**Endpoint:** `/api/files/upload`
 
-### Academic Management
-- Department, Course, and Subject management
-- Semester planning and auto-assignment
-- Student semester tracking with status updates
+**Method:** `POST`
 
-### Admission Process
-- Admission workflow with status transitions
-- Admission window management
-- Application tracking and history
-
-### Payment Processing
-- Secure payment handling
-- Fee breakdown by category
-- Refund management
-- Receipt generation
-
-### File Management
-- Cloudflare R2 integration for file storage
-- Document management (photos, certificates, etc.)
-- Secure file upload/download with verification
-
-### Certificate Management
-- Certificate request workflow
-- PDF certificate generation
-- Status tracking (Pending, Approved, Rejected, Issued)
-
-### Content Management System
-- Gallery management
-- News and notice board
-- Public content management
-
-### Audit and Security
-- Comprehensive audit logging
-- Role-based access control (RBAC)
-- JWT-based authentication
-- Production-grade error handling
-
-## 🛠 Tech Stack
-
-- **Backend**: Node.js, Express.js
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **Authentication**: JWT
-- **Validation**: Joi
-- **File Storage**: Cloudflare R2
-- **PDF Generation**: PDFKit
-
-## 📁 Project Structure
-
-```
-src/
-├── config/           # Configuration files
-├── controllers/      # Request handlers
-├── middlewares/      # Express middlewares
-├── routes/          # API route definitions
-├── services/        # Business logic services
-├── utils/           # Utility functions
-└── validation/      # Request validation schemas
+**Request Body:**
+```json
+{
+  "fileName": "<string>", // Name of the file to be uploaded
+  "fileData": "<base64_encoded_string>" // Base64 encoded file data
+}
 ```
 
-## 🔐 Role-Based Access Control (RBAC)
+**Response:**
+```json
+{
+  "success": true,
+  "message": "File uploaded successfully.",
+  "fileUrl": "<file_url>"
+}
+```
 
-The system implements a comprehensive RBAC system:
+### 2. Get Presigned URL
+**Endpoint:** `/api/files/presigned-url`
 
-- **ADMIN**: Full system access
-- **HOD**: Department-specific access
-- **ACCOUNTANT**: Payment-related operations
-- **STUDENT**: Self-service access
+**Method:** `GET`
 
-## 🗄️ Database Schema
+**Query Parameters:**
+- `fileName`: The name of the file for which the presigned URL is requested.
 
-The system uses PostgreSQL with Prisma ORM. Key models include:
+**Response:**
+```json
+{
+  "success": true,
+  "presignedUrl": "<presigned_url>"
+}
+```
 
-- **User**: System users with roles
-- **Student**: Student records
-- **Department**: Academic departments
-- **Course**: Academic courses
-- **Subject**: Course subjects
-- **Semester**: Academic semesters
-- **Admission**: Admission applications
-- **Payment**: Payment records
-- **CertificateRequest**: Certificate requests
-- **StudentDocument**: Student documents
-- **AuditLog**: System audit logs
+### 3. Download File
+**Endpoint:** `/api/files/download`
 
-## 📡 API Endpoints
+**Method:** `GET`
 
-The API follows RESTful conventions and is available under `/api/v1/`.
+**Query Parameters:**
+- `fileName`: The name of the file to be downloaded.
 
-## 🚦 Getting Started
+**Response:**
+```json
+{
+  "success": true,
+  "fileData": "<base64_encoded_string>",
+  "fileName": "<file_name>"
+}
+```
 
-### Prerequisites
+### 4. Delete File
+**Endpoint:** `/api/files/delete`
 
-- Node.js (v14 or higher)
-- PostgreSQL database
-- Cloudflare R2 account (for file storage)
+**Method:** `DELETE`
 
-### Installation
+**Request Body:**
+```json
+{
+  "fileName": "<string>"
+}
+```
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "File deleted successfully."
+}
+```
 
-3. Set up environment variables (see `.env.example`)
-4. Run database migrations:
-   ```bash
-   npx prisma migrate dev
-   ```
+### 5. Verify File
+**Endpoint:** `/api/files/verify`
 
-5. Start the development server:
-   ```bash
-   npm run dev
-   ```
+**Method:** `POST`
 
-## 🛡️ Security Features
+**Request Body:**
+```json
+{
+  "fileName": "<string>",
+  "fileHash": "<string>"  // Hash to verify the file integrity
+}
+```
 
-- JWT-based authentication
-- Rate limiting
-- Input validation
-- SQL injection prevention (Prisma)
-- XSS protection (Helmet.js)
-- CORS configuration
+**Response:**
+```json
+{
+  "success": true,
+  "verified": true,
+  "message": "File is verified."
+}
+```
 
-## 📊 Monitoring & Logging
+## Complete Integration Steps
+1. **Set up Cloudflare R2**:
+   - Create an R2 bucket in your Cloudflare dashboard.
+   - Obtain the Access Key and Secret Key.
 
-- Structured logging
-- Comprehensive audit trails
-- Error tracking
-- Performance monitoring
+2. **Configure environment variables**:
+   - Set the following environment variables:
+     - `CLOUDFLARE_ACCESS_KEY`
+     - `CLOUDFLARE_SECRET_KEY`
+     - `CLOUDFLARE_BUCKET_NAME`
 
-## 🚀 Deployment
+3. **Install dependencies**:
+   - Use npm or yarn to install necessary packages for file handling and API
 
-The application is production-ready with:
+4. **Use the API endpoints**:
+   - Implement calls to the provided API endpoints within your application, following the prescribed formats.
 
-- Graceful shutdown handling
-- Process event management
-- Error recovery mechanisms
-- Health check endpoints
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow the standard fork-and-pull request workflow.
-
-## 📄 License
-
-This project is licensed under the MIT License.
+## Conclusion
+This README provides an in-depth look into the file management functionalities integrated with Cloudflare R2. For additional support or feature requests, please raise an issue in the repository.
