@@ -39,12 +39,61 @@ app.use(helmet());
 app.use(morgan("dev"));
 
 // CORS
+// CORS — support comma-separated FRONTEND_URL values (e.g. http://localhost:5173,http://localhost:5173)
+const rawFrontendUrls = process.env.FRONTEND_URL || "*";
+const allowedOrigins = rawFrontendUrls.split(",").map((s) => s.trim()).filter(Boolean);
+const allowAll = allowedOrigins.includes("*");
+
+// Skip CORS for payment webhook endpoints (callback, return) - these are server-to-server calls
+const skipCorsForWebhooks = (req) => {
+  return req.path.includes("/api/v1/payments/callback") || 
+         req.path.includes("/api/v1/payments/return");
+};
+
 app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: false,  // jaise hi "*" hataunga then yaha prr true karna jaruri hai.
+  cors((req, callback) => {
+    // Return/callback endpoints must accept cross-origin browser posts from gateway.
+    if (skipCorsForWebhooks(req)) {
+      return callback(null, {
+        origin: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+        credentials: false,
+      });
+    }
+
+    return callback(null, {
+      origin: allowAll
+        ? "*"
+        : function (origin, originCb) {
+            // allow server-to-server or same-origin requests with no origin
+            if (!origin) return originCb(null, true);
+
+            // direct match from env list
+            if (allowedOrigins.indexOf(origin) !== -1) return originCb(null, true);
+
+            // allow any localhost / 127.0.0.1 / IPv6 loopback origins (any port)
+            try {
+              const parsed = new URL(origin);
+              const hostname = parsed.hostname;
+              if (
+                hostname === "localhost" ||
+                hostname === "127.0.0.1" ||
+                hostname === "::1"
+              ) {
+                return originCb(null, true);
+              }
+            } catch (e) {
+              // if origin isn't a valid URL, fall through to deny
+            }
+
+            return originCb(new Error("CORS policy: This origin is not allowed."), false);
+          },
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+      // credentials cannot be true when origin is "*"
+      credentials: !allowAll,
+    });
   })
 );
 

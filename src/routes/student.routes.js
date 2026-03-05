@@ -17,17 +17,26 @@ const {
   deleteStudent,
   assignSemester: assignSemesterController,
   updateStudentSemesterStatus,
-  verifyStudentForAdmission
+  verifyStudentForAdmission,
+  clearAllStudentPaymentStatuses
 } = require('../controllers/student.controller');
+
+const {
+  studentGeneratePaymentLink
+} = require('../controllers/payment.controller');
 
 router.post("/verify-student",joiValidator(verifyStudentSchema, "body"), verifyStudentForAdmission);
 
 // All routes below this middleware require authentication
 router.use(protect);
 
+// Student Payment Routes
+router.post('/:id/payments/:paymentId/generate-link', studentGeneratePaymentLink);
+
 // Student Management Routes
 router.post('/', restrictTo('ADMIN', 'HOD'), joiValidator(createStudent, "body"), createStudentController);
 router.get('/', restrictTo('ADMIN', 'HOD'), getAllStudents);
+router.post('/payments/clear-status', restrictTo('ADMIN', 'HOD'), clearAllStudentPaymentStatuses);
 router.get('/:id', restrictTo('ADMIN', 'HOD'), getStudent);
 router.patch('/:id', restrictTo('ADMIN', 'HOD'), joiValidator(updateStudent, "body"), updateStudentController);
 router.delete('/:id', restrictTo('ADMIN'), deleteStudent);

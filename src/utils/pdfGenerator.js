@@ -5,8 +5,8 @@ const path = require("path");
 exports.generateReceiptPDF = async (payment) => {
   const filePath = path.join("/tmp", `receipt-${payment.receiptNo}.pdf`);
   const doc = new PDFDocument({ size: "A4", margin: 50 });
-
-  doc.pipe(fs.createWriteStream(filePath));
+  const writeStream = fs.createWriteStream(filePath);
+  doc.pipe(writeStream);
 
   doc.fontSize(18).text("SEMESTER PAYMENT RECEIPT", { align: "center" });
   doc.moveDown();
@@ -30,14 +30,20 @@ exports.generateReceiptPDF = async (payment) => {
   doc.text("Authorized Signature", { align: "right" });
 
   doc.end();
+  await new Promise((resolve, reject) => {
+    writeStream.on("finish", resolve);
+    writeStream.on("error", reject);
+    doc.on("error", reject);
+  });
+
   return filePath;
 };
 
 exports.generateCertificatePDF = async (student, admission) => {
   const filePath = `/tmp/certificate-${student.reg_no}.pdf`;
   const doc = new PDFDocument({ size: "A4", margin: 50 });
-
-  doc.pipe(fs.createWriteStream(filePath));
+  const writeStream = fs.createWriteStream(filePath);
+  doc.pipe(writeStream);
 
   doc.fontSize(20).text("ADMISSION CERTIFICATE", { align: "center" });
   doc.moveDown(2);
@@ -51,5 +57,11 @@ exports.generateCertificatePDF = async (student, admission) => {
   doc.text("College Authority", { align: "right" });
 
   doc.end();
+  await new Promise((resolve, reject) => {
+    writeStream.on("finish", resolve);
+    writeStream.on("error", reject);
+    doc.on("error", reject);
+  });
+
   return filePath;
 };
