@@ -20,34 +20,38 @@ const {
 } = require('../controllers/file.controller');
 
 // All routes below this middleware require authentication
-router.use(protect);
+
 
 // File Management Routes
 router.post(
   '/', 
-  restrictTo('ADMIN', 'HOD', 'STUDENT'), 
+  // restrictTo('ADMIN'), 
   uploadSingleFile, 
   handleFileUploadErrors,
   joiValidator(uploadFile, "body"), 
   uploadFileController
 );
 
+
+
 router.get(
   '/students/:studentId/documents', 
-  restrictTo('ADMIN', 'HOD', 'STUDENT'), 
+  // restrictTo('ADMIN'), 
   getStudentDocuments
 );
 
+router.use(protect);
+
 router.patch(
   '/documents/:id/verify', 
-  restrictTo('ADMIN', 'HOD'), 
+  restrictTo('ADMIN'), 
   joiValidator(verifyDocument, "body"), 
   verifyDocumentController
 );
 
 router.get(
   '/:id/:fileType/download', 
-  restrictTo('ADMIN', 'HOD', 'STUDENT'), 
+  restrictTo('ADMIN'), 
   getFileDownloadUrl
 );
 
@@ -60,7 +64,7 @@ router.delete(
 router.post(
   "/presign-upload",
   protect,
-  restrictTo("ADMIN", "HOD", "STUDENT"),
+  restrictTo("ADMIN"),
   getPresignedUploadUrl
 );
 

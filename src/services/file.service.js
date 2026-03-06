@@ -239,7 +239,8 @@ exports.generatePresignedUploadUrl = async ({
 
   return {
     uploadUrl,
-    fileUrl: `https://${R2_BUCKET_NAME}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`,
+    // fileUrl: `https://${R2_BUCKET_NAME}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`,
+    fileUrl: `https://pub-69a6c36781b24ffe8e63b7f06a832a60.r2.dev/${key}`,
     key
   };
 };
