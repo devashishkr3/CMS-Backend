@@ -704,6 +704,196 @@ exports.refundPayment = async (req, res, next) => {
 };
 
 /**
+ * Get DCR1 - Daily Collection Report
+ * Returns:
+ * - Total admission payment collection (all-time)
+ * - This month's admission payment collection
+ * - Today's admission payment collection
+ * 
+ * Access: ADMIN, ACCOUNTANT
+ */
+exports.getDCR1Report = async (req, res, next) => {
+  try {
+    const now = new Date();
+    
+    // Start of today (midnight)
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Start of this month (1st day at midnight)
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    // End of today (just before midnight)
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+    
+    // Get total admission payment collection (all-time SUCCESS payments linked to admissions)
+    const totalCollection = await prisma.payment.aggregate({
+      where: {
+        status: 'SUCCESS',
+        admissionId: { not: null } // Only admission-linked payments
+      },
+      _sum: {
+        totalAmount: true
+      },
+      _count: true
+    });
+    
+    // Get this month's admission payment collection
+    const monthCollection = await prisma.payment.aggregate({
+      where: {
+        status: 'SUCCESS',
+        admissionId: { not: null },
+        createdAt: {
+          gte: startOfMonth,
+          lt: endOfToday // Up to now
+        }
+      },
+      _sum: {
+        totalAmount: true
+      },
+      _count: true
+    });
+    
+    // Get today's admission payment collection
+    const todayCollection = await prisma.payment.aggregate({
+      where: {
+        status: 'SUCCESS',
+        admissionId: { not: null },
+        createdAt: {
+          gte: startOfToday,
+          lt: endOfToday
+        }
+      },
+      _sum: {
+        totalAmount: true
+      },
+      _count: true
+    });
+    
+    // Get detailed breakdown for today's collections
+    const todayPaymentsDetail = await prisma.payment.findMany({
+      where: {
+        status: 'SUCCESS',
+        admissionId: { not: null },
+        createdAt: {
+          gte: startOfToday,
+          lt: endOfToday
+        }
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            reg_no: true,
+            email: true
+          }
+        },
+        admission: {
+          select: {
+            id: true,
+            admissionNo: true,
+            course: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
+          }
+        },
+        breakups: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+    
+    // Get detailed breakdown for this month's collections
+    const monthPaymentsDetail = await prisma.payment.findMany({
+      where: {
+        status: 'SUCCESS',
+        admissionId: { not: null },
+        createdAt: {
+          gte: startOfMonth,
+          lt: endOfToday
+        }
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            reg_no: true,
+            email: true
+          }
+        },
+        admission: {
+          select: {
+            id: true,
+            admissionNo: true,
+            course: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
+          }
+        },
+        breakups: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 100 // Limit to recent 100 transactions for performance
+    });
+    
+    // Format the report
+    const dcr1Report = {
+      reportDate: now.toISOString(),
+      reportType: 'DCR1 - Daily Collection Report',
+      summary: {
+        totalCollection: {
+          amount: totalCollection._sum.totalAmount || 0,
+          count: totalCollection._count || 0,
+          period: 'All Time'
+        },
+        monthCollection: {
+          amount: monthCollection._sum.totalAmount || 0,
+          count: monthCollection._count || 0,
+          period: `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`,
+          startDate: startOfMonth.toISOString(),
+          endDate: now.toISOString()
+        },
+        todayCollection: {
+          amount: todayCollection._sum.totalAmount || 0,
+          count: todayCollection._count || 0,
+          period: 'Today',
+          date: startOfToday.toISOString()
+        }
+      },
+      details: {
+        todayPayments: todayPaymentsDetail,
+        monthPayments: monthPaymentsDetail
+      }
+    };
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'DCR1 report generated successfully',
+      data: {
+        report: dcr1Report
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error generating DCR1 report:', error.message);
+    next(error);
+  }
+};
+
+/**
  * Get payment statistics
  * Access: ADMIN, ACCOUNTANT, HOD
  */

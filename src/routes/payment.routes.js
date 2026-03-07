@@ -24,7 +24,8 @@ const {
   generatePaymentLink,
   paymentReturn,
   studentGeneratePaymentLink,
-  downloadPublicInvoice
+  downloadPublicInvoice,
+  getDCR1Report
 } = require('../controllers/payment.controller');
 
 // ========== PUBLIC ROUTES (No Auth Required) ==========
@@ -61,6 +62,7 @@ router.post('/:paymentId/student-generate-link', studentGeneratePaymentLink);
 // Admin routes
 router.get('/', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getAllPayments);
 router.get('/stats', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPaymentStats);
+router.get('/dcr1-report', restrictTo('ADMIN', 'ACCOUNTANT'), getDCR1Report);
 router.get('/:id', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPayment);
 
 router.patch('/:id/status',
