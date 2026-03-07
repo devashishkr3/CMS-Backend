@@ -71,6 +71,7 @@ exports.getLast10Admissions = async (req, res, next) => {
             name: true,
             email: true,
             reg_no: true,
+            university_roll: true,
             phone: true
           }
         },

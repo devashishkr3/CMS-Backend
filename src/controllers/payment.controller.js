@@ -315,7 +315,8 @@ exports.createPayment = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true,
           }
         },
         admission: {
@@ -385,7 +386,8 @@ exports.getAllPayments = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true,
           }
         },
         admission: {
@@ -428,7 +430,8 @@ exports.getPayment = async (req, res, next) => {
           select: {
             id: true,
             name: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true,
           }
         },
         admission: {
@@ -560,7 +563,8 @@ exports.updatePaymentStatus = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true,
           }
         },
         admission: {
@@ -651,7 +655,8 @@ exports.refundPayment = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true,
           }
         },
         admission: {
@@ -787,6 +792,7 @@ exports.getDCR1Report = async (req, res, next) => {
             id: true,
             name: true,
             reg_no: true,
+            university_roll: true,
             email: true
           }
         },
@@ -826,6 +832,7 @@ exports.getDCR1Report = async (req, res, next) => {
             id: true,
             name: true,
             reg_no: true,
+            university_roll: true,
             email: true
           }
         },
@@ -972,6 +979,7 @@ exports.getDCR1ReportWithDateRange = async (req, res, next) => {
             id: true,
             name: true,
             reg_no: true,
+            university_roll: true,
             email: true
           }
         },
@@ -1180,7 +1188,8 @@ exports.getPaymentStats = async (req, res, next) => {
           select: {
             id: true,
             name: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true,
           }
         }
       },

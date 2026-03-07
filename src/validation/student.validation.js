@@ -7,6 +7,10 @@ const createStudent = Joi.object({
     'any.required': 'Registration number is required'
   }),
   class_roll: Joi.string().min(1).max(10).optional(),
+  university_roll: Joi.string().min(1).max(50).optional().messages({
+    'string.min': 'University roll should be at least 1 character long',
+    'string.max': 'University roll should not exceed 50 characters'
+  }),
   name: Joi.string().min(2).max(100).required().messages({
     'string.min': 'Name should be at least 2 characters long',
     'string.max': 'Name should not exceed 100 characters',
@@ -95,6 +99,10 @@ const updateStudent = Joi.object({
   }),
   class_roll: Joi.string().optional().messages({
     'string.base': 'Class roll must be a string'
+  }),
+  university_roll: Joi.string().min(1).max(50).optional().messages({
+    'string.min': 'University roll should be at least 1 character long',
+    'string.max': 'University roll should not exceed 50 characters'
   })
 });
 

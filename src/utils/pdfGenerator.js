@@ -15,6 +15,7 @@ exports.generateReceiptPDF = async (payment) => {
   doc.text(`Receipt No: ${payment.receiptNo}`);
   doc.text(`Student Name: ${payment.student.name}`);
   doc.text(`Registration No: ${payment.student.reg_no}`);
+  doc.text(`University Roll No: ${payment.student.university_roll || 'N/A'}`);
   doc.text(`Amount Paid: ₹${payment.totalAmount}`);
   doc.text(`Payment Status: ${payment.status}`);
   doc.text(`Date: ${new Date().toLocaleString()}`);
@@ -40,7 +41,7 @@ exports.generateReceiptPDF = async (payment) => {
 };
 
 exports.generateCertificatePDF = async (student, admission) => {
-  const filePath = `/tmp/certificate-${student.reg_no}.pdf`;
+  const filePath = `/tmp/certificate-${student.university_roll || student.reg_no}.pdf`;
   const doc = new PDFDocument({ size: "A4", margin: 50 });
   const writeStream = fs.createWriteStream(filePath);
   doc.pipe(writeStream);

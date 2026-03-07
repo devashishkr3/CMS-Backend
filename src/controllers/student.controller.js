@@ -20,6 +20,7 @@ exports.createStudent = async (req, res, next) => {
       reg_no,
       uan_no,
       class_roll,
+      university_roll,
       name,
       email,
       phone,
@@ -108,6 +109,7 @@ exports.createStudent = async (req, res, next) => {
           reg_no,
           uan_no,
           class_roll: finalClassRoll,
+          university_roll,
           name,
           email,
           phone,
@@ -171,6 +173,7 @@ exports.createStudent = async (req, res, next) => {
           reg_no,
           uan_no,
           class_roll: finalClassRoll,
+          university_roll,
           courseId,
           departmentId,
           semesterId,
@@ -716,7 +719,8 @@ exports.updateStudent = async (req, res, next) => {
       data: {
         ...value,
         dob: value.dob ? new Date(value.dob) : undefined,
-        uan_no: undefined // Prevent updating UAN as it's unique and should not change
+        uan_no: undefined, // Prevent updating UAN as it's unique and should not change
+        university_roll: value.university_roll || undefined // Allow updating university_roll
       },
       include: {
         course: {
@@ -993,7 +997,8 @@ exports.updateStudentSemesterStatus = async (req, res, next) => {
           select: {
             id: true,
             name: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true
           }
         }
       }
@@ -1227,6 +1232,7 @@ exports.verifyStudentForAdmission = async (req, res, next) => {
         name: profile.name,
         reg_no: profile.reg_no,
         uan_no: profile.uan_no,
+        university_roll: profile.university_roll,
         phone: profile.phone,
 
         course: profile.course,

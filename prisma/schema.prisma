@@ -132,6 +132,7 @@ model Student {
   email      String    @unique
   uan_no     String    @unique
   class_roll String?
+  university_roll     String?    @unique
   name       String
   phone      String
   dob        DateTime?

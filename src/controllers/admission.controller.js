@@ -65,7 +65,8 @@ exports.createAdmission = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true
           }
         },
         course: {
@@ -132,7 +133,8 @@ exports.getAllAdmissions = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true
           }
         },
         course: {
@@ -190,6 +192,7 @@ exports.getAdmission = async (req, res, next) => {
             name: true,
             email: true,
             reg_no: true,
+            university_roll: true,
             phone: true,
             address: true
           }
@@ -313,7 +316,8 @@ exports.updateAdmissionStatus = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true
           }
         },
         course: {

@@ -65,7 +65,8 @@ exports.createCertificateRequest = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true
           }
         },
         department: {
@@ -144,7 +145,8 @@ exports.getAllCertificateRequests = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true
           }
         },
         department: {
@@ -312,7 +314,8 @@ exports.updateCertificateStatus = async (req, res, next) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
+            reg_no: true,
+            university_roll: true
           }
         },
         department: {
