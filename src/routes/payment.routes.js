@@ -10,7 +10,7 @@ const {
   createPayment, 
   updatePaymentStatus, 
   refundPayment,
-  getDCR1ReportWithDateRange
+  getDCR1ReportWithDateRange: dcr1DateRangeValidator
 } = require("../validation/payment.validation");
 
 // Import controllers
@@ -71,7 +71,7 @@ router.get('/dcr1-report', restrictTo('ADMIN', 'ACCOUNTANT'), getDCR1Report);
 // DCR1 Report with date range filter and CSV export
 router.get('/dcr1-report/date-range', 
   restrictTo('ADMIN', 'ACCOUNTANT'),
-  joiValidator(getDCR1ReportWithDateRange, "query"),
+  joiValidator(dcr1DateRangeValidator, "query"),
   getDCR1ReportWithDateRange
 );
 
