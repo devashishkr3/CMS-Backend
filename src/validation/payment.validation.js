@@ -61,8 +61,41 @@ const refundPayment = Joi.object({
   })
 });
 
+// DCR1 report with date range validation schema
+const getDCR1ReportWithDateRange = Joi.object({
+  startDate: Joi.date().iso().required().messages({
+    'date.iso': 'Start date must be in ISO format (YYYY-MM-DD)',
+    'any.required': 'Start date is required'
+  }),
+  endDate: Joi.date().iso().required().messages({
+    'date.iso': 'End date must be in ISO format (YYYY-MM-DD)',
+    'any.required': 'End date is required'
+  })
+}).custom((value, helpers) => {
+  const start = new Date(value.startDate);
+  const end = new Date(value.endDate);
+  
+  if (start > end) {
+    return helpers.error('date.range');
+  }
+  
+  // Optional: Limit range to max 1 year
+  const diffTime = Math.abs(end - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays > 365) {
+    return helpers.error('date.maxrange');
+  }
+  
+  return value;
+}).messages({
+  'date.range': 'Start date cannot be after end date',
+  'date.maxrange': 'Date range cannot exceed 365 days'
+});
+
 module.exports = {
   createPayment,
   updatePaymentStatus,
-  refundPayment
+  refundPayment,
+  getDCR1ReportWithDateRange
 };

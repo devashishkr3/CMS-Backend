@@ -9,7 +9,8 @@ const joiValidator = require("../middlewares/joiValidator");
 const { 
   createPayment, 
   updatePaymentStatus, 
-  refundPayment 
+  refundPayment,
+  getDCR1ReportWithDateRange
 } = require("../validation/payment.validation");
 
 // Import controllers
@@ -25,7 +26,10 @@ const {
   paymentReturn,
   studentGeneratePaymentLink,
   downloadPublicInvoice,
-  getDCR1Report
+  getDCR1Report,
+  getDCR1ReportWithDateRange,
+  getTodayCollection,
+  getMonthCollection
 } = require('../controllers/payment.controller');
 
 // ========== PUBLIC ROUTES (No Auth Required) ==========
@@ -63,6 +67,18 @@ router.post('/:paymentId/student-generate-link', studentGeneratePaymentLink);
 router.get('/', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getAllPayments);
 router.get('/stats', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPaymentStats);
 router.get('/dcr1-report', restrictTo('ADMIN', 'ACCOUNTANT'), getDCR1Report);
+
+// DCR1 Report with date range filter and CSV export
+router.get('/dcr1-report/date-range', 
+  restrictTo('ADMIN', 'ACCOUNTANT'),
+  joiValidator(getDCR1ReportWithDateRange, "query"),
+  getDCR1ReportWithDateRange
+);
+
+// Quick collection endpoints
+router.get('/dcr1-report/today', restrictTo('ADMIN', 'ACCOUNTANT'), getTodayCollection);
+router.get('/dcr1-report/month', restrictTo('ADMIN', 'ACCOUNTANT'), getMonthCollection);
+
 router.get('/:id', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPayment);
 
 router.patch('/:id/status',

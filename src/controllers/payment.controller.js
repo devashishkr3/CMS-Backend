@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const AppError = require('../utils/error');
+const { generatePaymentCSV, generateSummaryCSV } = require('../utils/dcr1ReportGenerator');
 const { 
   createPayment, 
   updatePaymentStatus, 
@@ -889,6 +890,269 @@ exports.getDCR1Report = async (req, res, next) => {
     
   } catch (error) {
     console.error('Error generating DCR1 report:', error.message);
+    next(error);
+  }
+};
+
+/**
+ * Get DCR1 Report with Date Range Filter
+ * Returns:
+ * - Total collection within date range
+ * - Transaction details within date range
+ * - CSV export option
+ * - Summary statistics
+ * 
+ * Query Params:
+ * - startDate: Start date (ISO format: YYYY-MM-DD)
+ * - endDate: End date (ISO format: YYYY-MM-DD)
+ * - format: 'json' or 'csv' (default: 'json')
+ * 
+ * Access: ADMIN, ACCOUNTANT
+ */
+exports.getDCR1ReportWithDateRange = async (req, res, next) => {
+  try {
+    const { startDate, endDate, format } = req.query;
+    
+    // Parse dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Set start to beginning of day
+    start.setHours(0, 0, 0, 0);
+    
+    // Set end to end of day
+    end.setHours(23, 59, 59, 999);
+    
+    // Validate date range
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return next(new AppError('Invalid date format. Use ISO format (YYYY-MM-DD)', 400));
+    }
+    
+    if (start > end) {
+      return next(new AppError('Start date cannot be after end date', 400));
+    }
+    
+    // Limit range to max 1 year for performance
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays > 365) {
+      return next(new AppError('Date range cannot exceed 365 days', 400));
+    }
+    
+    // Get total collection within date range
+    const rangeCollection = await prisma.payment.aggregate({
+      where: {
+        status: 'SUCCESS',
+        admissionId: { not: null },
+        createdAt: {
+          gte: start,
+          lte: end
+        }
+      },
+      _sum: {
+        totalAmount: true
+      },
+      _count: true
+    });
+    
+    // Get all detailed transactions within date range
+    const paymentsDetail = await prisma.payment.findMany({
+      where: {
+        status: 'SUCCESS',
+        admissionId: { not: null },
+        createdAt: {
+          gte: start,
+          lte: end
+        }
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            reg_no: true,
+            email: true
+          }
+        },
+        admission: {
+          select: {
+            id: true,
+            admissionNo: true,
+            course: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
+          }
+        },
+        breakups: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+    
+    // Calculate summary
+    const totalAmount = rangeCollection._sum.totalAmount || 0;
+    const totalCount = rangeCollection._count || 0;
+    const averageAmount = totalCount > 0 ? (totalAmount / totalCount) : 0;
+    
+    // Prepare summary object
+    const summary = {
+      totalCollection: {
+        amount: Number(totalAmount),
+        count: totalCount,
+        period: `${start.toLocaleDateString('en-IN')} to ${end.toLocaleDateString('en-IN')}`,
+        startDate: start.toISOString(),
+        endDate: end.toISOString()
+      },
+      averageTransaction: {
+        amount: Number(averageAmount.toFixed(2)),
+        description: 'Average per transaction'
+      }
+    };
+    
+    // If CSV format requested
+    if (format === 'csv') {
+      const { csvData, fileName } = generatePaymentCSV(paymentsDetail);
+      
+      // Add summary at the end of CSV
+      const summaryCSV = generateSummaryCSV(summary, start, end);
+      const finalCSV = csvData + '\n\n' + summaryCSV;
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      
+      return res.send(finalCSV);
+    }
+    
+    // Format the JSON report
+    const dcr1Report = {
+      reportType: 'DCR1 - Date Range Collection Report',
+      generatedAt: new Date().toISOString(),
+      dateRange: {
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        formattedRange: `${start.toLocaleDateString('en-IN')} to ${end.toLocaleDateString('en-IN')}`,
+        totalDays: diffDays
+      },
+      summary: summary,
+      statistics: {
+        totalTransactions: totalCount,
+        successfulAmount: Number(totalAmount),
+        averageTransactionValue: Number(averageAmount.toFixed(2)),
+        highestTransaction: paymentsDetail.length > 0 
+          ? Math.max(...paymentsDetail.map(p => Number(p.totalAmount))) 
+          : 0,
+        lowestTransaction: paymentsDetail.length > 0 
+          ? Math.min(...paymentsDetail.map(p => Number(p.totalAmount))) 
+          : 0
+      },
+      transactions: paymentsDetail,
+      downloadLinks: {
+        csv: `/api/v1/payments/dcr1-report/date-range?startDate=${startDate}&endDate=${endDate}&format=csv`
+      }
+    };
+    
+    res.status(200).json({
+      status: 'success',
+      message: `DCR1 report generated for ${diffDays + 1} days`,
+      data: {
+        report: dcr1Report
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error generating DCR1 date range report:', error.message);
+    next(error);
+  }
+};
+
+/**
+ * Get Today's Collection Summary
+ * Quick endpoint for today's collection only
+ * Access: ADMIN, ACCOUNTANT
+ */
+exports.getTodayCollection = async (req, res, next) => {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+    
+    const todayCollection = await prisma.payment.aggregate({
+      where: {
+        status: 'SUCCESS',
+        admissionId: { not: null },
+        createdAt: {
+          gte: startOfToday,
+          lt: endOfToday
+        }
+      },
+      _sum: {
+        totalAmount: true
+      },
+      _count: true
+    });
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        today: {
+          amount: Number(todayCollection._sum.totalAmount || 0),
+          count: todayCollection._count || 0,
+          date: startOfToday.toISOString()
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Month's Collection Summary
+ * Quick endpoint for current month's collection only
+ * Access: ADMIN, ACCOUNTANT
+ */
+exports.getMonthCollection = async (req, res, next) => {
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    
+    const monthCollection = await prisma.payment.aggregate({
+      where: {
+        status: 'SUCCESS',
+        admissionId: { not: null },
+        createdAt: {
+          gte: startOfMonth,
+          lte: endOfMonth
+        }
+      },
+      _sum: {
+        totalAmount: true
+      },
+      _count: true
+    });
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        month: {
+          amount: Number(monthCollection._sum.totalAmount || 0),
+          count: monthCollection._count || 0,
+          startDate: startOfMonth.toISOString(),
+          endDate: endOfMonth.toISOString(),
+          monthName: now.toLocaleString('default', { month: 'long' }),
+          year: now.getFullYear()
+        }
+      }
+    });
+  } catch (error) {
     next(error);
   }
 };
