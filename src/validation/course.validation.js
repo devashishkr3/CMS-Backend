@@ -24,6 +24,10 @@ const createCourse = Joi.object({
     sessionId: Joi.string().uuid().required().messages({
     'string.uuid': 'Session ID must be a valid UUID',
     'any.required': 'Session ID is required'
+  }),
+  semesterFee: Joi.number().min(0).precision(2).optional().messages({
+    'number.base': 'Semester fee must be a number',
+    'number.min': 'Semester fee cannot be negative'
   })
 });
 
