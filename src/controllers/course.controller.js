@@ -5,6 +5,26 @@ const {
   updateCourse,
 } = require("../validation/course.validation");
 
+const SEMESTER_FEE_SURCHARGE_NUMBER = 5;
+const SEMESTER_FEE_SURCHARGE_AMOUNT = 200;
+
+const buildSemesterFeeRows = (courseId, semesters, baseSemesterFee) => {
+  if (baseSemesterFee === undefined || baseSemesterFee === null) {
+    return [];
+  }
+
+  return semesters.map((semester) => ({
+    courseId,
+    semesterId: semester.id,
+    head: "TUITION",
+    amount:
+      Number(baseSemesterFee) +
+      (semester.number === SEMESTER_FEE_SURCHARGE_NUMBER
+        ? SEMESTER_FEE_SURCHARGE_AMOUNT
+        : 0),
+  }));
+};
+
 /**
  * Create a new course
  * Access: ADMIN
@@ -102,7 +122,7 @@ exports.createCourse = async (req, res, next) => {
       );
     }
 
-    const { name, code, durationYears, departmentId, sessionId } = value;
+    const { name, code, durationYears, departmentId, sessionId, semesterFee } = value;
     // console.log(value);
 
     // 2️⃣ Validate department
@@ -196,6 +216,25 @@ exports.createCourse = async (req, res, next) => {
 
       await tx.semester.createMany({ data: semesters });
 
+      // Create semester-wise fee structure if semesterFee is provided.
+      if (semesterFee !== undefined && semesterFee !== null) {
+        const createdSemesters = await tx.semester.findMany({
+          where: { courseId: createdCourse.id },
+          select: { id: true, number: true },
+          orderBy: { number: "asc" },
+        });
+
+        const feeRows = buildSemesterFeeRows(
+          createdCourse.id,
+          createdSemesters,
+          semesterFee,
+        );
+
+        if (feeRows.length) {
+          await tx.feeStructure.createMany({ data: feeRows });
+        }
+      }
+
       // Audit log
       await tx.auditLog.create({
         data: {
@@ -210,6 +249,8 @@ exports.createCourse = async (req, res, next) => {
             departmentId,
             sessionId,
             totalSemesters,
+            semesterFee: semesterFee ?? null,
+            semester5Surcharge: SEMESTER_FEE_SURCHARGE_AMOUNT,
           },
         },
       });
@@ -529,7 +570,7 @@ exports.deleteCourse = async (req, res, next) => {
 exports.createSemesters = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { numberOfSemesters } = req.body;
+    const { numberOfSemesters, semesterFee } = req.body;
 
     // Validate input
     if (!numberOfSemesters || numberOfSemesters <= 0) {
@@ -580,6 +621,19 @@ exports.createSemesters = async (req, res, next) => {
       data: semestersData,
     });
 
+    if (semesterFee !== undefined && semesterFee !== null) {
+      const createdSemesters = await prisma.semester.findMany({
+        where: { courseId: id },
+        select: { id: true, number: true },
+        orderBy: { number: "asc" },
+      });
+
+      const feeRows = buildSemesterFeeRows(id, createdSemesters, semesterFee);
+      if (feeRows.length) {
+        await prisma.feeStructure.createMany({ data: feeRows });
+      }
+    }
+
     // Log audit entry
     await prisma.auditLog.create({
       data: {
@@ -587,7 +641,12 @@ exports.createSemesters = async (req, res, next) => {
         action: "CREATE_SEMESTERS_FOR_COURSE",
         entity: "Semester",
         entityId: id,
-        payload: JSON.stringify({ courseId: id, numberOfSemesters }),
+        payload: JSON.stringify({
+          courseId: id,
+          numberOfSemesters,
+          semesterFee: semesterFee ?? null,
+          semester5Surcharge: SEMESTER_FEE_SURCHARGE_AMOUNT,
+        }),
       },
     });
 
@@ -596,6 +655,8 @@ exports.createSemesters = async (req, res, next) => {
       message: `${semesters.count} semesters created successfully for course`,
       data: {
         count: semesters.count,
+        semesterFeeApplied: semesterFee !== undefined && semesterFee !== null,
+        semester5Surcharge: SEMESTER_FEE_SURCHARGE_AMOUNT,
       },
     });
   } catch (error) {
