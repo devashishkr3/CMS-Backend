@@ -8,6 +8,88 @@ const {
   updateAdmissionWindow
 } = require('../validation/admission.validation');
 
+const ADMISSION_FEE_RULES = {
+  5: {
+    baseFee: 3450,
+    practicalFee: 600,
+  },
+};
+
+const parseBooleanQueryParam = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return false;
+
+  const normalized = value.trim().toLowerCase();
+  return ['true', '1', 'yes', 'y'].includes(normalized);
+};
+
+exports.getAdmissionFeePreview = async (req, res, next) => {
+  try {
+    const courseId = req.query.courseId;
+    const semesterValue = req.query.semester ?? req.query.semerster;
+    const practicalValue = req.query.practical ?? req.query.practicle;
+
+    if (!courseId) {
+      return next(new AppError('courseId is required', 400));
+    }
+
+    const semesterNumber = Number.parseInt(semesterValue, 10);
+    if (!Number.isInteger(semesterNumber) || semesterNumber <= 0) {
+      return next(new AppError('semester must be a positive integer', 400));
+    }
+
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { id: true, name: true, code: true },
+    });
+
+    if (!course) {
+      return next(new AppError('Course not found', 404));
+    }
+
+    const semester = await prisma.semester.findFirst({
+      where: {
+        courseId,
+        number: semesterNumber,
+      },
+      select: { id: true, number: true },
+    });
+
+    if (!semester) {
+      return next(new AppError(`Semester ${semesterNumber} not found for this course`, 404));
+    }
+
+    const feeRule = ADMISSION_FEE_RULES[semesterNumber];
+    if (!feeRule) {
+      return next(new AppError(`Admission fee rule is not configured for semester ${semesterNumber}`, 400));
+    }
+
+    const practical = parseBooleanQueryParam(practicalValue);
+    const baseFee = feeRule.baseFee;
+    const practicalFee = practical ? feeRule.practicalFee : 0;
+    const totalFee = baseFee + practicalFee;
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        course,
+        semester,
+        practical,
+        feeBreakdown: {
+          admissionFee: baseFee,
+          practicalFee,
+          totalFee,
+        },
+        message: practical
+          ? `Admission fee for semester ${semesterNumber} with practical is ${totalFee}`
+          : `Admission fee for semester ${semesterNumber} without practical is ${totalFee}`,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /**
  * Create a new admission
  * Access: ADMIN, HOD
