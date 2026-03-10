@@ -16,6 +16,7 @@ const {
 // Import controllers
 const {
   createAdmission: createAdmissionController,
+  getAdmissionFeePreview,
   getAllAdmissions,
   getAdmission,
   updateAdmissionStatus: updateAdmissionStatusController,
@@ -28,6 +29,7 @@ const {
 
 //Public route for getting admission windows
 router.get('/windows', getAllAdmissionWindows);
+router.get('/fee-preview', getAdmissionFeePreview);
 
 // All routes below this middleware require authentication
 router.use(protect);
