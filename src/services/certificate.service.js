@@ -147,8 +147,8 @@ exports.issueCertificate = async (certificateId, user) => {
             id: true,
             name: true,
             email: true,
-            reg_no: true
-            // university_roll: true  // TODO: Uncomment after running migration
+            reg_no: true,
+            university_roll: true
           }
         },
         department: {

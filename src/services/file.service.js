@@ -73,8 +73,8 @@ exports.saveFileMetadata = async (fileData) => {
             select: {
               id: true,
               name: true,
-              reg_no: true
-              // university_roll: true  // TODO: Uncomment after running migration
+              reg_no: true,
+              university_roll: true
             }
           }
         }
@@ -115,8 +115,8 @@ exports.getFileMetadata = async (fileId, fileType) => {
             select: {
               id: true,
               name: true,
-              reg_no: true
-              // university_roll: true  // TODO: Uncomment after running migration
+              reg_no: true,
+              university_roll: true
             }
           }
         }

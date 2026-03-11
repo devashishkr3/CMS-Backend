@@ -71,7 +71,7 @@ exports.getLast10Admissions = async (req, res, next) => {
             name: true,
             email: true,
             reg_no: true,
-            // university_roll: true,  // TODO: Uncomment after running migration
+            // university_roll: true,
             phone: true
           }
         },
@@ -324,5 +324,3 @@ exports.getStudentCountsByStatus = async (req, res, next) => {
 //     next(error);
 //   }
 // };
-
-
