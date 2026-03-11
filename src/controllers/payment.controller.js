@@ -82,7 +82,7 @@ const getPrimaryFrontendBase = () => {
     .filter(Boolean);
 
   const usable = candidates.find(isUsableAbsoluteUrl);
-  return usable || "http://localhost:5173";
+  return usable || "http://localhost:5173"; // developement or production ?
 };
 
 const getBackendPublicBase = (req) => {
@@ -95,7 +95,7 @@ const getBackendPublicBase = (req) => {
     return `${req.protocol}://${req.get("host")}`;
   }
 
-  return "http://localhost:8080";
+  return "http://localhost:8080";  // developement or production ?
 };
 
 const buildGatewayReturnOrCallbackUrl = (req, type, paymentId) => {
