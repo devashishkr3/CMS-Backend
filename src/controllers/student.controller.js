@@ -46,60 +46,81 @@ exports.createStudent = async (req, res, next) => {
       profileNo
     } = value;
 
-    // REQUIRED CHECK (uan_no)
-    if (!uan_no) {
-      return next(new AppError('uan_no is required', 400));
+    // DUPLICATE EMAIL CHECK (if email provided)
+    if (email) {
+      const emailExists = await prisma.student.findUnique({ where: { email } });
+      if (emailExists) {
+        return next(new AppError('Student with this email already exists', 400));
+      }
     }
 
-    // DUPLICATE EMAIL
-    const emailExists = await prisma.student.findUnique({ where: { email } });
-    if (emailExists) {
-      return next(new AppError('Student with this email already exists', 400));
+    // DUPLICATE UAN CHECK (if uan provided)
+    if (uan_no) {
+      const uanExists = await prisma.student.findUnique({ where: { uan_no } });
+      if (uanExists) {
+        return next(new AppError('Student with this UAN already exists', 400));
+      }
     }
 
-    // DUPLICATE UAN
-    const uanExists = await prisma.student.findUnique({ where: { uan_no } });
-    if (uanExists) {
-      return next(new AppError('Student with this UAN already exists', 400));
+    // DUPLICATE UNIVERSITY ROLL CHECK (if university_roll provided)
+    if (university_roll) {
+      const universityRollExists = await prisma.student.findUnique({ where: { university_roll } });
+      if (universityRollExists) {
+        return next(new AppError('Student with this University Roll already exists', 400));
+      }
     }
 
-    // DEPARTMENT
-    const department = await prisma.department.findUnique({
-      where: { id: departmentId }
-    });
-    if (!department) {
-      return next(new AppError('Department not found', 404));
+    // DEPARTMENT (if departmentId provided)
+    let department;
+    if (departmentId) {
+      department = await prisma.department.findUnique({
+        where: { id: departmentId }
+      });
+      if (!department) {
+        return next(new AppError('Department not found', 404));
+      }
     }
 
-    // COURSE
-    const course = await prisma.course.findUnique({ where: { id: courseId } });
-    if (!course || course.departmentId !== departmentId) {
-      return next(new AppError('Invalid course for department', 400));
+    // COURSE (if courseId provided)
+    let course;
+    if (courseId) {
+      course = await prisma.course.findUnique({ where: { id: courseId } });
+      if (!course || (departmentId && course.departmentId !== departmentId)) {
+        return next(new AppError('Invalid course for department', 400));
+      }
     }
 
-    // SESSION
-    const session = await prisma.session.findUnique({ where: { id: sessionId } });
-    if (!session) {
-      return next(new AppError('Session not found', 404));
+    // SESSION (if sessionId provided)
+    let session;
+    if (sessionId) {
+      session = await prisma.session.findUnique({ where: { id: sessionId } });
+      if (!session) {
+        return next(new AppError('Session not found', 404));
+      }
     }
 
-    // COURSE SESSION
-    const courseSession = await prisma.courseSession.findUnique({
-      where: { courseId_sessionId: { courseId, sessionId } }
-    });
-    if (!courseSession) {
-      return next(new AppError('Course not available in selected session', 400));
+    // COURSE SESSION (if courseId and sessionId provided)
+    if (courseId && sessionId) {
+      const courseSession = await prisma.courseSession.findUnique({
+        where: { courseId_sessionId: { courseId, sessionId } }
+      });
+      if (!courseSession) {
+        return next(new AppError('Course not available in selected session', 400));
+      }
     }
 
-    // SEMESTER
-    const semester = await prisma.semester.findUnique({ where: { id: semesterId } });
-    if (!semester || semester.courseId !== courseId) {
-      return next(new AppError('Invalid semester for selected course', 400));
+    // SEMESTER (if semesterId provided)
+    let semester;
+    if (semesterId) {
+      semester = await prisma.semester.findUnique({ where: { id: semesterId } });
+      if (!semester || (courseId && semester.courseId !== courseId)) {
+        return next(new AppError('Invalid semester for selected course', 400));
+      }
     }
 
     // AUTO CLASS ROLL (IF NOT PROVIDED)
     const finalClassRoll =
-      class_roll || `${course.code}-${semester.number}-${Date.now()}`;
+      class_roll || (course && semester ? `${course.code}-${semester.number}-${Date.now()}` : undefined);
 
     // TRANSACTION
     const student = await prisma.$transaction(async (tx) => {
@@ -119,50 +140,56 @@ exports.createStudent = async (req, res, next) => {
           category,
           address,
           photoUrl,
-          courseId,
-          sessionId,
+          courseId: courseId || null,
+          sessionId: sessionId || null,
           status: 'ACTIVE'
         }
       });
 
-      await tx.studentSemester.create({
-        data: {
-          studentId: student.id,
-          semesterId,
-          status: 'ONGOING',
-          feePaid: false,
-          startDate: new Date()
-        }
-      });
+      // Create student semester if semesterId provided
+      if (semesterId) {
+        await tx.studentSemester.create({
+          data: {
+            studentId: student.id,
+            semesterId,
+            status: 'ONGOING',
+            feePaid: false,
+            startDate: new Date()
+          }
+        });
+      }
 
-      const admission = await tx.admission.create({
-        data: {
-          studentId: student.id,
-          courseId,
-          departmentId,
-          sessionId,
-          semesterId,
-          type: admissionType,
-          academicYear,
+      // Create admission if required fields are provided
+      if (admissionType && academicYear && courseId && sessionId && semesterId) {
+        const admission = await tx.admission.create({
+          data: {
+            studentId: student.id,
+            courseId,
+            departmentId,
+            sessionId,
+            semesterId,
+            type: admissionType,
+            academicYear,
 
-          // OPTIONAL FIELDS
-          admissionNo,
-          confidentialNo,
-          meritListType,
-          profileNo,
+            // OPTIONAL FIELDS
+            admissionNo,
+            confidentialNo,
+            meritListType,
+            profileNo,
 
-          status: 'CONFIRMED'
-        }
-      });
+            status: 'CONFIRMED'
+          }
+        });
 
-      await tx.admissionHistory.create({
-        data: {
-          admissionId: admission.id,
-          fromStatus: 'INITIATED',
-          toStatus: 'CONFIRMED',
-          changedById: req.user.id
-        }
-      });
+        await tx.admissionHistory.create({
+          data: {
+            admissionId: admission.id,
+            fromStatus: 'INITIATED',
+            toStatus: 'CONFIRMED',
+            changedById: req.user.id
+          }
+        });
+      }
 
       await logAudit({
         userId: req.user.id,
@@ -1143,7 +1170,7 @@ exports.verifyStudentForAdmission = async (req, res, next) => {
       return next(new AppError(error.details[0].message, 400));
     }
 
-    const { uan_no, reg_no, phone } = value;
+    const { uan_no, reg_no, university_roll, phone } = value;
 
 
     /* ============================
@@ -1156,11 +1183,13 @@ exports.verifyStudentForAdmission = async (req, res, next) => {
       student = await prisma.student.findUnique({
         where: { uan_no }
       });
-    }
-
-    if (reg_no) {
+    } else if (reg_no) {
       student = await prisma.student.findUnique({
         where: { reg_no }
+      });
+    } else if (university_roll) {
+      student = await prisma.student.findUnique({
+        where: { university_roll }
       });
     }
 
