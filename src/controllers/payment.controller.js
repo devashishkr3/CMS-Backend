@@ -184,9 +184,9 @@ const isGatewayIdentityValid = (decrypted) => {
 const triggerReceiptGenerationAsync = (paymentId, source) => {
   setImmediate(async () => {
     try {
-      console.log(`📄 [${source}] Async receipt/certificate generation started for ${paymentId}`);
+      // console.log(`📄 [${source}] Async receipt/certificate generation started for ${paymentId}`);
       await generateReceiptAndCertificate(paymentId);
-      console.log(`✅ [${source}] Async receipt/certificate generation completed for ${paymentId}`);
+      // console.log(`✅ [${source}] Async receipt/certificate generation completed for ${paymentId}`);
     } catch (err) {
       console.warn(`⚠️  [${source}] Async receipt/certificate generation failed:`, err.message);
     }
@@ -218,7 +218,7 @@ exports.createPayment = async (req, res, next) => {
         return next(new AppError('Student not found', 404));
       }
     } catch (dbError) {
-      console.warn('⚠️  Database unavailable, using mock data for testing');
+      // console.warn('⚠️  Database unavailable, using mock data for testing');
       
       // Return mock payment for testing
       const mockPayment = {
@@ -1220,7 +1220,7 @@ exports.generatePaymentLink = async (req, res, next) => {
       return next(new AppError("Payment not found", 404));
     }
 
-    console.log(`✅ Payment found: ${payment.receiptNo}, Amount: ${payment.totalAmount}`);
+    // console.log(`✅ Payment found: ${payment.receiptNo}, Amount: ${payment.totalAmount}`);
 
     // Build GetEpay payload
     const returnUrl = buildGatewayReturnOrCallbackUrl(req, "return", payment.id);
@@ -1252,28 +1252,28 @@ exports.generatePaymentLink = async (req, res, next) => {
       udf10: ""
     };
 
-    console.log(`📦 Payload created, amount: ${payload.amount}`);
+    // console.log(`📦 Payload created, amount: ${payload.amount}`);
 
     // Initialize encryption
-    console.log(`🔑 IV: ${process.env.GETEPAY_IV ? 'Set' : 'NULL'}`);
-    console.log(`🔑 KEY: ${process.env.GETEPAY_KEY ? 'Set' : 'NULL'}`);
+    // console.log(`🔑 IV: ${process.env.GETEPAY_IV ? 'Set' : 'NULL'}`);
+    // console.log(`🔑 KEY: ${process.env.GETEPAY_KEY ? 'Set' : 'NULL'}`);
 
     const enc = new GcmPgEncryption(
       process.env.GETEPAY_IV,
       process.env.GETEPAY_KEY
     );
 
-    console.log(`🔐 Encrypting payload...`);
+    // console.log(`🔐 Encrypting payload...`);
     const encrypted = await enc.encrypt(JSON.stringify(payload));
-    console.log(`✅ Encrypted successfully, length: ${encrypted.length}`);
+    // console.log(`✅ Encrypted successfully, length: ${encrypted.length}`);
 
     // Call GetEpay API
-    console.log(`🚀 Calling GetEpay API at: ${process.env.GETEPAY_URL}`);
-    console.log(`📤 Request data:`, {
-      mid: process.env.GETEPAY_MID,
-      terminalId: process.env.GETEPAY_TERMINAL_ID,
-      req: encrypted.substring(0, 50) + '...' // Show first 50 chars
-    });
+    // console.log(`🚀 Calling GetEpay API at: ${process.env.GETEPAY_URL}`);
+    // console.log(`📤 Request data:`, {
+    //   mid: process.env.GETEPAY_MID,
+    //   terminalId: process.env.GETEPAY_TERMINAL_ID,
+    //   req: encrypted.substring(0, 50) + '...' // Show first 50 chars
+    // });
 
     let response;
     try {
@@ -1294,9 +1294,9 @@ exports.generatePaymentLink = async (req, res, next) => {
       throw new AppError(`GetEpay API error: ${axiosError.message}`, 502);
     }
 
-    console.log(`✅ GetEpay API response status: ${response.status}`);
-    console.log(`📥 Full Response object keys:`, Object.keys(response.data));
-    console.log(`📥 Complete Response data:`, JSON.stringify(response.data, null, 2));
+    // console.log(`✅ GetEpay API response status: ${response.status}`);
+    // console.log(`📥 Full Response object keys:`, Object.keys(response.data));
+    // console.log(`📥 Complete Response data:`, JSON.stringify(response.data, null, 2));
 
     // Check if GetEpay returned an error
     if (response.data.status === 'FAILED') {
@@ -1310,11 +1310,11 @@ exports.generatePaymentLink = async (req, res, next) => {
       throw new AppError('GetEpay returned empty response', 502);
     }
 
-    console.log(`🔍 Checking for response field...`);
-    console.log(`   response.data.response exists?`, !!response.data.response);
-    console.log(`   response.data.resp exists?`, !!response.data.resp);
-    console.log(`   response.data.paymentUrl exists?`, !!response.data.paymentUrl);
-    console.log(`   All data keys:`, Object.keys(response.data));
+    // console.log(`🔍 Checking for response field...`);
+    // console.log(`   response.data.response exists?`, !!response.data.response);
+    // console.log(`   response.data.resp exists?`, !!response.data.resp);
+    // console.log(`   response.data.paymentUrl exists?`, !!response.data.paymentUrl);
+    // console.log(`   All data keys:`, Object.keys(response.data));
 
     if (!response.data.response) {
       console.error('❌ GetEpay response.data.response is missing');
@@ -1323,7 +1323,7 @@ exports.generatePaymentLink = async (req, res, next) => {
     }
 
     // Decrypt response
-    console.log(`🔓 Decrypting response...`);
+    // console.log(`🔓 Decrypting response...`);
     let decrypted;
     try {
       const decryptedStr = await enc.decrypt(response.data.response);
@@ -1335,7 +1335,7 @@ exports.generatePaymentLink = async (req, res, next) => {
       console.error('❌ Decryption error:', decryptError.message);
       throw new AppError(`Decryption failed: ${decryptError.message}`, 502);
     }
-    console.log(`✅ Decrypted response:`, decrypted);
+    // console.log(`✅ Decrypted response:`, decrypted);
 
     // Update payment with gateway reference
     await prisma.payment.update({
@@ -1359,7 +1359,7 @@ exports.generatePaymentLink = async (req, res, next) => {
       });
     }
 
-    console.log(`✅ Payment link generated successfully`);
+    // console.log(`✅ Payment link generated successfully`);
 
     res.status(200).json({
       status: "success",
@@ -1474,9 +1474,9 @@ exports.studentGeneratePaymentLink = async (req, res, next) => {
  */
 exports.paymentReturn = async (req, res, next) => {
   try {
-    console.log('\n' + '='.repeat(80));
-    console.log('🔄 [RETURN] ===== PAYMENT RETURN RECEIVED =====');
-    console.log('='.repeat(80));
+    // console.log('\n' + '='.repeat(80));
+    // console.log('🔄 [RETURN] ===== PAYMENT RETURN RECEIVED =====');
+    // console.log('='.repeat(80));
     
     let paymentId = req.query.paymentId;
     let txnStatus = "INITIATED";
@@ -1485,7 +1485,7 @@ exports.paymentReturn = async (req, res, next) => {
 
     // Get encrypted response from GetEpay
     const encryptedResponse = getEncryptedGatewayResponse(req);
-    console.log('📦 [RETURN] Encrypted response present?', !!encryptedResponse);
+    // console.log('📦 [RETURN] Encrypted response present?', !!encryptedResponse);
 
     // Decrypt the response if available
     if (encryptedResponse) {
@@ -1495,12 +1495,12 @@ exports.paymentReturn = async (req, res, next) => {
           process.env.GETEPAY_KEY
         );
 
-        console.log('🔐 [RETURN] Decrypting response...');
+        // console.log('🔐 [RETURN] Decrypting response...');
         const decryptedData = await enc.decrypt(encryptedResponse);
         const decrypted = JSON.parse(decryptedData);
         
-        console.log('✅ [RETURN] Decryption successful');
-        console.log('📋 [RETURN] Decrypted data:', JSON.stringify(decrypted, null, 2));
+        // console.log('✅ [RETURN] Decryption successful');
+        // console.log('📋 [RETURN] Decrypted data:', JSON.stringify(decrypted, null, 2));
 
         if (!isGatewayIdentityValid(decrypted)) {
           console.error("❌ [RETURN] Gateway identity check failed");
@@ -1521,7 +1521,7 @@ exports.paymentReturn = async (req, res, next) => {
           });
           if (payment) {
             paymentId = payment.id;
-            console.log('✅ [RETURN] Found payment by merchantOrderNo:', paymentId);
+            // console.log('✅ [RETURN] Found payment by merchantOrderNo:', paymentId);
           }
         }
       } catch (decryptError) {
@@ -1532,7 +1532,7 @@ exports.paymentReturn = async (req, res, next) => {
     // Update payment status in database
     if (paymentId && (txnStatus === GATEWAY_SUCCESS || txnStatus === GATEWAY_FAILED)) {
       try {
-        console.log(`📝 [RETURN] Updating payment ${paymentId} to status: ${txnStatus}`);
+        // console.log(`📝 [RETURN] Updating payment ${paymentId} to status: ${txnStatus}`);
         
         const payment = await prisma.payment.findUnique({
           where: { id: paymentId },
@@ -1557,20 +1557,20 @@ exports.paymentReturn = async (req, res, next) => {
               }
             });
 
-            console.log(`✅ [RETURN] Payment status updated to: ${nextStatus}`);
+            // console.log(`✅ [RETURN] Payment status updated to: ${nextStatus}`);
 
             if (nextStatus === "SUCCESS" && payment.admissionId) {
               await prisma.admission.update({
                 where: { id: payment.admissionId },
                 data: { status: "CONFIRMED" }
               });
-              console.log(`✅ [RETURN] Admission status confirmed`);
+              // console.log(`✅ [RETURN] Admission status confirmed`);
             }
 
           }
 
           if (nextStatus === "SUCCESS" && !payment.receiptUrl) {
-            console.log(`📄 [RETURN] Queueing receipt/certificate generation...`);
+            // console.log(`📄 [RETURN] Queueing receipt/certificate generation...`);
             triggerReceiptGenerationAsync(payment.id, "RETURN");
           }
         }
@@ -1601,7 +1601,7 @@ exports.paymentReturn = async (req, res, next) => {
     const redirectUrl = buildProcessingRedirectUrl(paymentId, {
       status: redirectStatus
     });
-    console.log(`✅ [RETURN] Redirecting to: ${redirectUrl}`);
+    // console.log(`✅ [RETURN] Redirecting to: ${redirectUrl}`);
     res.redirect(redirectUrl);
 
   } catch (error) {
@@ -1620,9 +1620,9 @@ exports.paymentReturn = async (req, res, next) => {
  */
 exports.paymentCallback = async (req, res, next) => {
   try {
-    console.log('\n' + '='.repeat(80));
-    console.log('🔔 [CALLBACK] ===== GETEPAY CALLBACK RECEIVED =====');
-    console.log('='.repeat(80));
+    // console.log('\n' + '='.repeat(80));
+    // console.log('🔔 [CALLBACK] ===== GETEPAY CALLBACK RECEIVED =====');
+    // console.log('='.repeat(80));
     
     const encryptedResponse = getEncryptedGatewayResponse(req);
 
@@ -1636,8 +1636,8 @@ exports.paymentCallback = async (req, res, next) => {
       });
     }
 
-    console.log('📦 [CALLBACK] Received encrypted response (first 100 chars):', 
-      encryptedResponse.substring(0, 100) + '...');
+    // console.log('📦 [CALLBACK] Received encrypted response (first 100 chars):', 
+      // encryptedResponse.substring(0, 100) + '...');
 
     // Initialize decryption with GetEpay credentials
     const enc = new GcmPgEncryption(
@@ -1646,11 +1646,11 @@ exports.paymentCallback = async (req, res, next) => {
     );
 
     // Decrypt response from GetEpay
-    console.log('🔐 [CALLBACK] Decrypting response with AES-256-GCM...');
+    // console.log('🔐 [CALLBACK] Decrypting response with AES-256-GCM...');
     let decryptedData;
     try {
       decryptedData = await enc.decrypt(encryptedResponse);
-      console.log('✅ [CALLBACK] Decryption successful');
+      // console.log('✅ [CALLBACK] Decryption successful');
     } catch (decryptError) {
       console.error('❌ [CALLBACK] Decryption failed:', decryptError.message);
       return res.status(400).json({ 
@@ -1663,7 +1663,7 @@ exports.paymentCallback = async (req, res, next) => {
     let decrypted;
     try {
       decrypted = JSON.parse(decryptedData);
-      console.log('✅ [CALLBACK] JSON parsed successfully');
+      // console.log('✅ [CALLBACK] JSON parsed successfully');
     } catch (parseError) {
       console.error('❌ [CALLBACK] JSON parse failed:', parseError.message);
       console.error('📦 [CALLBACK] Decrypted content:', decryptedData);
@@ -1673,8 +1673,8 @@ exports.paymentCallback = async (req, res, next) => {
       });
     }
 
-    console.log('📋 [CALLBACK] Decrypted Response Data:');
-    console.log(JSON.stringify(decrypted, null, 2));
+    // console.log('📋 [CALLBACK] Decrypted Response Data:');
+    // console.log(JSON.stringify(decrypted, null, 2));
 
     if (!isGatewayIdentityValid(decrypted)) {
       console.error('❌ [CALLBACK] Gateway identity check failed');
@@ -1703,13 +1703,13 @@ exports.paymentCallback = async (req, res, next) => {
       errorMessage
     } = parseGatewayResponseFields(decrypted);
 
-    console.log('🔍 [CALLBACK] Extracted Fields:');
-    console.log(`  ├─ Merchant Txn ID: ${merchantTxnId}`);
-    console.log(`  ├─ Status: ${txnStatus}`);
-    console.log(`  ├─ GetEpay Txn ID: ${getepayTxnId}`);
-    console.log(`  ├─ Amount: ${txnAmount}`);
-    console.log(`  ├─ Mode: ${paymentMode}`);
-    console.log(`  └─ Date: ${txnDate}`);
+    // console.log('🔍 [CALLBACK] Extracted Fields:');
+    // console.log(`  ├─ Merchant Txn ID: ${merchantTxnId}`);
+    // console.log(`  ├─ Status: ${txnStatus}`);
+    // console.log(`  ├─ GetEpay Txn ID: ${getepayTxnId}`);
+    // console.log(`  ├─ Amount: ${txnAmount}`);
+    // console.log(`  ├─ Mode: ${paymentMode}`);
+    // console.log(`  └─ Date: ${txnDate}`);
 
     // Validate transaction ID exists
     if (!merchantTxnId) {
@@ -1721,7 +1721,7 @@ exports.paymentCallback = async (req, res, next) => {
     }
 
     // Find payment by our transaction ID
-    console.log(`\n🔍 [CALLBACK] Finding payment with txnId: ${merchantTxnId}`);
+    // console.log(`\n🔍 [CALLBACK] Finding payment with txnId: ${merchantTxnId}`);
     const payment = await prisma.payment.findUnique({
       where: { txnId: merchantTxnId },
       include: {
@@ -1739,10 +1739,10 @@ exports.paymentCallback = async (req, res, next) => {
       });
     }
 
-    console.log(`✅ [CALLBACK] Payment found: ${payment.id}`);
-    console.log(`  ├─ Student: ${payment.student?.name}`);
-    console.log(`  ├─ Amount: ₹${payment.totalAmount}`);
-    console.log(`  └─ Current Status: ${payment.status}`);
+    // console.log(`✅ [CALLBACK] Payment found: ${payment.id}`);
+    // console.log(`  ├─ Student: ${payment.student?.name}`);
+    // console.log(`  ├─ Amount: ₹${payment.totalAmount}`);
+    // console.log(`  └─ Current Status: ${payment.status}`);
 
     const expectedAmount = parseCurrencyAmount(payment.totalAmount);
     const receivedAmount = parseCurrencyAmount(txnAmount);
@@ -1758,9 +1758,9 @@ exports.paymentCallback = async (req, res, next) => {
 
     const nextStatus = resolveInternalPaymentStatus(txnStatus);
     if (!shouldApplyStatusUpdate(payment.status, nextStatus)) {
-      console.log(
-        `ℹ️ [CALLBACK] Ignoring status downgrade ${payment.status} -> ${nextStatus}`
-      );
+      // console.log(
+        // `ℹ️ [CALLBACK] Ignoring status downgrade ${payment.status} -> ${nextStatus}`
+      // );
       return res.status(200).json({
         status: "success",
         message: "Callback received (ignored as non-progressive update)",
@@ -1769,7 +1769,7 @@ exports.paymentCallback = async (req, res, next) => {
     }
 
     if (payment.status === nextStatus) {
-      console.log(`ℹ️ [CALLBACK] Idempotent callback (status already ${nextStatus})`);
+      // console.log(`ℹ️ [CALLBACK] Idempotent callback (status already ${nextStatus})`);
       return res.status(200).json({
         status: "success",
         message: "Callback already processed",
@@ -1779,9 +1779,9 @@ exports.paymentCallback = async (req, res, next) => {
 
     // ========== HANDLE SUCCESS ==========
     if (txnStatus === GATEWAY_SUCCESS) {
-      console.log(`\n💰 [CALLBACK] ===== PAYMENT SUCCESSFUL =====`);
-      console.log(`  GetEpay Txn ID: ${getepayTxnId}`);
-      console.log(`  Payment Mode: ${paymentMode}`);
+      // console.log(`\n💰 [CALLBACK] ===== PAYMENT SUCCESSFUL =====`);
+      // console.log(`  GetEpay Txn ID: ${getepayTxnId}`);
+      // console.log(`  Payment Mode: ${paymentMode}`);
 
       // Update payment with success details
       const updateData = {
@@ -1790,29 +1790,29 @@ exports.paymentCallback = async (req, res, next) => {
         bankTxnNo: getepayTxnId || payment.bankTxnNo || null
       };
 
-      console.log(`\n📝 [CALLBACK] Updating payment status to SUCCESS...`);
+      // console.log(`\n📝 [CALLBACK] Updating payment status to SUCCESS...`);
       const updatedPayment = await prisma.payment.update({
         where: { id: payment.id },
         data: updateData
       });
       
-      console.log(`✅ [CALLBACK] Payment status updated to SUCCESS`);
-      console.log(`  ├─ ID: ${updatedPayment.id}`);
-      console.log(`  ├─ Status: ${updatedPayment.status}`);
-      console.log(`  └─ Reference: ${updatedPayment.referenceNo}`);
+      // console.log(`✅ [CALLBACK] Payment status updated to SUCCESS`);
+      // console.log(`  ├─ ID: ${updatedPayment.id}`);
+      // console.log(`  ├─ Status: ${updatedPayment.status}`);
+      // console.log(`  └─ Reference: ${updatedPayment.referenceNo}`);
 
       // Update admission status if linked
       if (payment.admissionId) {
-        console.log(`\n📋 [CALLBACK] Updating admission status...`);
+        // console.log(`\n📋 [CALLBACK] Updating admission status...`);
         await prisma.admission.update({
           where: { id: payment.admissionId },
           data: { status: 'CONFIRMED' }
         });
-        console.log(`✅ [CALLBACK] Admission confirmed`);
+        // console.log(`✅ [CALLBACK] Admission confirmed`);
       }
 
       // Do not block callback ACK on PDF generation/upload.
-      console.log(`\n📄 [CALLBACK] Queueing receipt and certificate generation...`);
+      // console.log(`\n📄 [CALLBACK] Queueing receipt and certificate generation...`);
       triggerReceiptGenerationAsync(payment.id, "CALLBACK");
 
       // Log successful payment to audit log
@@ -1831,12 +1831,12 @@ exports.paymentCallback = async (req, res, next) => {
             })
           }
         });
-        console.log(`✅ [CALLBACK] Audit log created`);
+        // console.log(`✅ [CALLBACK] Audit log created`);
       } catch (auditError) {
         console.warn(`⚠️  [CALLBACK] Audit log creation warning:`, auditError.message);
       }
 
-      console.log(`\n✅ [CALLBACK] ===== ALL OPERATIONS COMPLETED SUCCESSFULLY =====\n`);
+      // console.log(`\n✅ [CALLBACK] ===== ALL OPERATIONS COMPLETED SUCCESSFULLY =====\n`);
       return res.status(200).json({ 
         status: 'success', 
         message: 'Payment processed successfully',
@@ -1847,11 +1847,11 @@ exports.paymentCallback = async (req, res, next) => {
     } 
     // ========== HANDLE FAILURE ==========
     else if (txnStatus === GATEWAY_FAILED) {
-      console.log(`\n❌ [CALLBACK] ===== PAYMENT FAILED =====`);
-      console.log(`  GetEpay Txn ID: ${getepayTxnId}`);
-      console.log(`  Failure Message: ${errorMessage || 'Unknown error'}`);
+      // console.log(`\n❌ [CALLBACK] ===== PAYMENT FAILED =====`);
+      // console.log(`  GetEpay Txn ID: ${getepayTxnId}`);
+      // console.log(`  Failure Message: ${errorMessage || 'Unknown error'}`);
 
-      console.log(`\n📝 [CALLBACK] Updating payment status to FAILED...`);
+      // console.log(`\n📝 [CALLBACK] Updating payment status to FAILED...`);
       const updatedPayment = await prisma.payment.update({
         where: { id: payment.id },
         data: {
@@ -1861,7 +1861,7 @@ exports.paymentCallback = async (req, res, next) => {
         }
       });
 
-      console.log(`✅ [CALLBACK] Payment status updated to FAILED`);
+      // console.log(`✅ [CALLBACK] Payment status updated to FAILED`);
 
       // Log failed payment to audit log
       try {
@@ -1879,12 +1879,12 @@ exports.paymentCallback = async (req, res, next) => {
             })
           }
         });
-        console.log(`✅ [CALLBACK] Audit log created for failure`);
+        // console.log(`✅ [CALLBACK] Audit log created for failure`);
       } catch (auditError) {
         console.warn(`⚠️  [CALLBACK] Audit log creation warning:`, auditError.message);
       }
 
-      console.log(`\n❌ [CALLBACK] ===== FAILURE PROCESSING COMPLETE =====\n`);
+      // console.log(`\n❌ [CALLBACK] ===== FAILURE PROCESSING COMPLETE =====\n`);
       return res.status(200).json({ 
         status: 'failed', 
         message: 'Payment failed',
@@ -1897,8 +1897,8 @@ exports.paymentCallback = async (req, res, next) => {
     }
     // ========== UNKNOWN STATUS ==========
     else {
-      console.log(`\n⚠️  [CALLBACK] Unknown transaction status: ${txnStatus}`);
-      console.log(`\n⚠️  [CALLBACK] Updating payment status to PENDING...`);
+      // console.log(`\n⚠️  [CALLBACK] Unknown transaction status: ${txnStatus}`);
+      // console.log(`\n⚠️  [CALLBACK] Updating payment status to PENDING...`);
       
       await prisma.payment.update({
         where: { id: payment.id },
@@ -1908,7 +1908,7 @@ exports.paymentCallback = async (req, res, next) => {
         }
       });
 
-      console.log(`⚠️  [CALLBACK] ===== UNKNOWN STATUS RECORDED =====\n`);
+      // console.log(`⚠️  [CALLBACK] ===== UNKNOWN STATUS RECORDED =====\n`);
       return res.status(200).json({ 
         status: 'pending', 
         message: 'Payment status unknown, marked for review',
@@ -1920,7 +1920,7 @@ exports.paymentCallback = async (req, res, next) => {
   } catch (error) {
     console.error('\n❌ [CALLBACK] CRITICAL ERROR:', error.message);
     console.error('Stack:', error.stack);
-    console.log('='.repeat(80) + '\n');
+    // console.log('='.repeat(80) + '\n');
     next(error);
   }
 };
@@ -2113,9 +2113,9 @@ exports.paymentCallback = async (req, res, next) => {
 // const triggerReceiptGenerationAsync = (paymentId, source) => {
 //   setImmediate(async () => {
 //     try {
-//       console.log(`📄 [${source}] Async receipt/certificate generation started for ${paymentId}`);
+      // console.log(`📄 [${source}] Async receipt/certificate generation started for ${paymentId}`);
 //       await generateReceiptAndCertificate(paymentId);
-//       console.log(`✅ [${source}] Async receipt/certificate generation completed for ${paymentId}`);
+      // console.log(`✅ [${source}] Async receipt/certificate generation completed for ${paymentId}`);
 //     } catch (err) {
 //       console.warn(`⚠️  [${source}] Async receipt/certificate generation failed:`, err.message);
 //     }
@@ -3094,7 +3094,7 @@ exports.paymentCallback = async (req, res, next) => {
 // exports.requeryPaymentStatus = async (req, res, next) => {
 //   try {
 //     const { id } = req.params;
-//     console.log(`🔍 Requering payment status for: ${id}`);
+    // console.log(`🔍 Requering payment status for: ${id}`);
 
 //     const payment = await prisma.payment.findUnique({
 //       where: { id },
@@ -3120,7 +3120,7 @@ exports.paymentCallback = async (req, res, next) => {
 //       terminalId: process.env.GETEPAY_TERMINAL_ID
 //     };
 
-//     console.log(`📦 Requery payload:`, requeryPayload);
+    // console.log(`📦 Requery payload:`, requeryPayload);
 
 //     // Initialize encryption based on environment
 //     const enc = new GetEpayEncryption(
@@ -3137,7 +3137,7 @@ exports.paymentCallback = async (req, res, next) => {
 //       ? 'https://portal.getepay.in/getepayPortal/pg/invoiceStatus'
 //       : 'https://pay1.getepay.in:8443/getepayPortal/pg/invoiceStatus';
 
-//     console.log(`🚀 Calling GetEpay Requery API at: ${requeryUrl}`);
+    // console.log(`🚀 Calling GetEpay Requery API at: ${requeryUrl}`);
 
 //     let response;
 //     try {
@@ -3176,7 +3176,7 @@ exports.paymentCallback = async (req, res, next) => {
 //       throw new AppError(`Failed to decrypt requery response: ${decryptError.message}`, 502);
 //     }
 
-//     console.log(`✅ Decrypted requery response:`, decrypted);
+    // console.log(`✅ Decrypted requery response:`, decrypted);
 
 //     // Update payment status if needed
 //     const gatewayStatus = normalizeTxnStatus(decrypted.txnStatus || decrypted.paymentStatus);
@@ -3194,9 +3194,9 @@ exports.paymentCallback = async (req, res, next) => {
 //         data: updateData
 //       });
 
-//       console.log(`✅ Payment status updated to SUCCESS`);
+      // console.log(`✅ Payment status updated to SUCCESS`);
 //     } else if (gatewayStatus === 'FAILED' || gatewayStatus === 'PENDING') {
-//       console.log(`⚠️ Payment status: ${gatewayStatus}`);
+      // console.log(`⚠️ Payment status: ${gatewayStatus}`);
 //     }
 
 //     res.status(200).json({
@@ -3269,7 +3269,7 @@ exports.paymentCallback = async (req, res, next) => {
 // exports.generatePaymentLink = async (req, res, next) => {
 //   try {
 //     const { paymentId } = req.params;
-//     console.log(`🔗 Generating payment link for payment: ${paymentId}`);
+    // console.log(`🔗 Generating payment link for payment: ${paymentId}`);
 
 //     const payment = await prisma.payment.findUnique({
 //       where: { id: paymentId },
@@ -3281,7 +3281,7 @@ exports.paymentCallback = async (req, res, next) => {
 //       return next(new AppError("Payment not found", 404));
 //     }
 
-//     console.log(`✅ Payment found: ${payment.receiptNo}, Amount: ${payment.totalAmount}`);
+    // console.log(`✅ Payment found: ${payment.receiptNo}, Amount: ${payment.totalAmount}`);
 
 //     // Build GetEpay payload
 //     const returnUrl = buildGatewayReturnOrCallbackUrl(req, "return", payment.id);
@@ -3313,12 +3313,12 @@ exports.paymentCallback = async (req, res, next) => {
 //       vpa: process.env.GETEPAY_TERMINAL_ID
 //     };
 
-//     console.log(`📦 Payload created, amount: ${payload.amount}`);
+    // console.log(`📦 Payload created, amount: ${payload.amount}`);
 
 //     // Initialize encryption
-//     console.log(`🔑 IV: ${process.env.GETEPAY_IV ? 'Set' : 'NULL'}`);
-//     console.log(`🔑 KEY: ${process.env.GETEPAY_KEY ? 'Set' : 'NULL'}`);
-//     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    // console.log(`🔑 IV: ${process.env.GETEPAY_IV ? 'Set' : 'NULL'}`);
+    // console.log(`🔑 KEY: ${process.env.GETEPAY_KEY ? 'Set' : 'NULL'}`);
+    // console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 
 //     const enc = new GetEpayEncryption(
 //       process.env.GETEPAY_IV,
@@ -3326,7 +3326,7 @@ exports.paymentCallback = async (req, res, next) => {
 //       process.env.NODE_ENV === 'production'
 //     );
 
-//     console.log(`🔐 Encrypting payload...`);
+    // console.log(`🔐 Encrypting payload...`);
 //     const encrypted = await enc.encrypt(JSON.stringify(payload));
 //     console.log(`✅ Encrypted successfully, length: ${encrypted.length}`);
 

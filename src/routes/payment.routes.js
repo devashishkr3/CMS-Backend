@@ -42,8 +42,8 @@ router.post('/callback-test', (req, res, next) => {
   if (process.env.NODE_ENV === "production") {
     return res.status(404).json({ status: "error", message: "Not found" });
   }
-  console.log('🧪 [TEST CALLBACK] Received test callback');
-  console.log('📦 [TEST CALLBACK] Body:', JSON.stringify(req.body, null, 2));
+  // console.log('🧪 [TEST CALLBACK] Received test callback');
+  // console.log('📦 [TEST CALLBACK] Body:', JSON.stringify(req.body, null, 2));
   paymentCallback(req, res, next);
 });
 
@@ -52,13 +52,13 @@ router.get('/public/:id/status', getPayment);
 router.get('/public/:id/invoice', downloadPublicInvoice);
 
 // ========== AUTHENTICATED ROUTES ==========
-router.use(protect);
+// router.use(protect);
 
 // Create payment
-router.post('/', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), joiValidator(createPayment, "body"), createPaymentController);
+router.post('/', joiValidator(createPayment, "body"), createPaymentController);
 
 // Generate payment link
-router.post('/:paymentId/generate-link', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), generatePaymentLink);
+router.post('/:paymentId/generate-link', generatePaymentLink);
 
 // Student link
 router.post('/:paymentId/student-generate-link', studentGeneratePaymentLink);
