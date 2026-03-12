@@ -26,28 +26,28 @@ exports.getAllSemesters = async (req, res, next) => {
             name: true
           }
         },
-        subjects: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            type: true
-          }
-        },
-        studentSemesters: {
-          select: {
-            id: true,
-            student: {
-              select: {
-                id: true,
-                name: true,
-                reg_no: true
-              }
-            },
-            status: true,
-            feePaid: true
-          }
-        }
+        // subjects: {
+        //   select: {
+        //     id: true,
+        //     code: true,
+        //     name: true,
+        //     type: true
+        //   }
+        // },
+        // studentSemesters: {
+          // select: {
+          //   id: true,
+          //   // student: {
+          //   //   select: {
+          //   //     id: true,
+          //   //     name: true,
+          //   //     reg_no: true
+          //   //   }
+          //   // },
+          //   status: true,
+          //   feePaid: true
+          // }
+        // }
       },
       orderBy: {
         number: 'asc'
