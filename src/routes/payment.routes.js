@@ -29,7 +29,8 @@ const {
   getDCR1Report,
   getDCR1ReportWithDateRange,
   getTodayCollection,
-  getMonthCollection
+  getMonthCollection,
+  requeryPaymentStatus
 } = require('../controllers/payment.controller');
 
 // ========== PUBLIC ROUTES (No Auth Required) ==========
@@ -80,6 +81,9 @@ router.get('/dcr1-report/today', protect, restrictTo('ADMIN', 'ACCOUNTANT'), get
 router.get('/dcr1-report/month', protect, restrictTo('ADMIN', 'ACCOUNTANT'), getMonthCollection);
 
 router.get('/:id', protect, restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPayment);
+
+// Requery payment status from gateway (for admin to manually verify pending payments)
+router.get('/:id/requery', protect, restrictTo('ADMIN', 'ACCOUNTANT'), requeryPaymentStatus);
 
 router.patch('/:id/status',
   restrictTo('ADMIN', 'ACCOUNTANT'), protect,

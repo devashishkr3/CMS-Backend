@@ -8,7 +8,8 @@ const {
 } = require('../validation/payment.validation');
 const axios = require("axios");
 const fs = require("fs");
-const GcmPgEncryption = require("../utils/getepayEncrypt");
+const moment = require("moment");
+const GetEpayEncryption = require("../utils/getepayEncryptProduction");
 const { generateReceiptAndCertificate } = require("./receipt.controller");
 const { generateReceiptPDF } = require("../utils/pdfGenerator");
 
@@ -1158,6 +1159,138 @@ exports.getMonthCollection = async (req, res, next) => {
 };
 
 /**
+ * Requery payment status from GetEpay gateway
+ * Used to manually verify pending/failed payments
+ * Access: ADMIN, ACCOUNTANT
+ */
+exports.requeryPaymentStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    console.log(`🔍 Requering payment status for: ${id}`);
+
+    const payment = await prisma.payment.findUnique({
+      where: { id },
+      include: { student: true }
+    });
+
+    if (!payment) {
+      return next(new AppError("Payment not found", 404));
+    }
+
+    // Validate environment variables
+    if (!process.env.GETEPAY_MID || !process.env.GETEPAY_TERMINAL_ID || 
+        !process.env.GETEPAY_KEY || !process.env.GETEPAY_IV) {
+      throw new AppError("GetEpay gateway configuration missing", 500);
+    }
+
+    // Build requery payload
+    const requeryPayload = {
+      mid: process.env.GETEPAY_MID,
+      paymentId: payment.gatewayPaymentId || "", // Use gatewayPaymentId if available
+      referenceNo: payment.referenceNo || "",
+      status: "",
+      terminalId: process.env.GETEPAY_TERMINAL_ID
+    };
+
+    console.log(`📦 Requery payload:`, requeryPayload);
+
+    // Initialize encryption based on environment
+    const enc = new GetEpayEncryption(
+      process.env.GETEPAY_IV,
+      process.env.GETEPAY_KEY,
+      process.env.NODE_ENV === 'production'
+    );
+
+    // Encrypt the request
+    const encrypted = await enc.encrypt(JSON.stringify(requeryPayload));
+
+    // Determine requery endpoint
+    const requeryUrl = process.env.NODE_ENV === 'production'
+      ? 'https://portal.getepay.in/getepayPortal/pg/invoiceStatus'
+      : 'https://pay1.getepay.in:8443/getepayPortal/pg/invoiceStatus';
+
+    console.log(`🚀 Calling GetEpay Requery API at: ${requeryUrl}`);
+
+    let response;
+    try {
+      response = await axios.post(requeryUrl, {
+        mid: process.env.GETEPAY_MID,
+        req: encrypted,
+        terminalId: process.env.GETEPAY_TERMINAL_ID
+      }, {
+        timeout: 30000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+    } catch (axiosError) {
+      console.error('❌ GetEpay Requery API Error:', {
+        status: axiosError.response?.status,
+        statusText: axiosError.response?.statusText,
+        data: axiosError.response?.data,
+        message: axiosError.message
+      });
+      throw new AppError(`Requery failed: ${axiosError.message}`, 502);
+    }
+
+    // Check response
+    if (!response.data || !response.data.response) {
+      throw new AppError('Invalid response from payment gateway', 502);
+    }
+
+    // Decrypt response
+    let decrypted;
+    try {
+      const decryptedStr = await enc.decrypt(response.data.response);
+      decrypted = JSON.parse(decryptedStr);
+    } catch (decryptError) {
+      throw new AppError(`Failed to decrypt requery response: ${decryptError.message}`, 502);
+    }
+
+    console.log(`✅ Decrypted requery response:`, decrypted);
+
+    // Update payment status if needed
+    const gatewayStatus = normalizeTxnStatus(decrypted.txnStatus || decrypted.paymentStatus);
+    let updateData = {};
+
+    if (gatewayStatus === 'SUCCESS' && payment.status !== 'SUCCESS') {
+      updateData = {
+        status: 'SUCCESS',
+        bankTxnNo: decrypted.getepayTxnId || payment.bankTxnNo,
+        referenceNo: decrypted.merchantOrderNo || payment.referenceNo
+      };
+      
+      await prisma.payment.update({
+        where: { id },
+        data: updateData
+      });
+
+      console.log(`✅ Payment status updated to SUCCESS`);
+    } else if (gatewayStatus === 'FAILED' || gatewayStatus === 'PENDING') {
+      console.log(`⚠️ Payment status: ${gatewayStatus}`);
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Payment status requeried successfully",
+      data: {
+        paymentId: payment.id,
+        receiptNo: payment.receiptNo,
+        currentStatus: payment.status,
+        gatewayStatus: gatewayStatus,
+        gatewayTxnId: decrypted.getepayTxnId || "N/A",
+        amount: payment.totalAmount,
+        lastUpdated: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error in requeryPaymentStatus:', error.message);
+    next(error);
+  }
+};
+
+/**
  * Get payment statistics
  * Access: ADMIN, ACCOUNTANT, HOD
  */
@@ -1231,14 +1364,13 @@ exports.generatePaymentLink = async (req, res, next) => {
       terminalId: process.env.GETEPAY_TERMINAL_ID,
       amount: payment.totalAmount.toString(),
       merchantTransactionId: payment.txnId,
-      transactionDate: new Date().toISOString(),
+      transactionDate: moment().format("DD-MM-YYYY HH:mm:ss"),
       ru: returnUrl,
       callbackUrl: callbackUrl,
       currency: "INR",
       paymentMode: "ALL",
-      bankId: "455",
       txnType: "single",
-      productType: "IPG",
+      productType: "PAYMENT",
       txnNote: `Payment for ${payment.student.name} - ${payment.receiptNo}`,
       udf1: payment.student.phone || "",
       udf2: payment.student.email || "",
@@ -1249,7 +1381,8 @@ exports.generatePaymentLink = async (req, res, next) => {
       udf7: "",
       udf8: "",
       udf9: "",
-      udf10: ""
+      udf10: "",
+      vpa: process.env.GETEPAY_TERMINAL_ID
     };
 
     console.log(`📦 Payload created, amount: ${payload.amount}`);
@@ -1257,10 +1390,12 @@ exports.generatePaymentLink = async (req, res, next) => {
     // Initialize encryption
     console.log(`🔑 IV: ${process.env.GETEPAY_IV ? 'Set' : 'NULL'}`);
     console.log(`🔑 KEY: ${process.env.GETEPAY_KEY ? 'Set' : 'NULL'}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 
-    const enc = new GcmPgEncryption(
+    const enc = new GetEpayEncryption(
       process.env.GETEPAY_IV,
-      process.env.GETEPAY_KEY
+      process.env.GETEPAY_KEY,
+      process.env.NODE_ENV === 'production'
     );
 
     console.log(`🔐 Encrypting payload...`);
@@ -1282,16 +1417,34 @@ exports.generatePaymentLink = async (req, res, next) => {
         terminalId: process.env.GETEPAY_TERMINAL_ID,
         req: encrypted
       }, {
-        timeout: 30000 // 30 second timeout
+        timeout: 60000, // 60 second timeout for production
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        validateStatus: function (status) {
+          return status >= 200 && status < 300; // Accept only 2xx status
+        }
       });
     } catch (axiosError) {
       console.error('❌ GetEpay API Error:', {
         status: axiosError.response?.status,
         statusText: axiosError.response?.statusText,
         data: axiosError.response?.data,
-        message: axiosError.message
+        message: axiosError.message,
+        code: axiosError.code
       });
-      throw new AppError(`GetEpay API error: ${axiosError.message}`, 502);
+      
+      // Provide more specific error messages
+      if (axiosError.code === 'ECONNABORTED') {
+        throw new AppError('GetEpay API request timeout. Please try again.', 504);
+      } else if (axiosError.response?.status === 502 || axiosError.response?.status === 503) {
+        throw new AppError('Payment gateway temporarily unavailable. Please try again later.', 502);
+      } else if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
+        throw new AppError('Payment gateway authentication failed. Please contact support.', 502);
+      } else {
+        throw new AppError(`GetEpay API error: ${axiosError.message}`, 502);
+      }
     }
 
     console.log(`✅ GetEpay API response status: ${response.status}`);
@@ -1342,7 +1495,8 @@ exports.generatePaymentLink = async (req, res, next) => {
       where: { id: paymentId },
       data: {
         gateway: "GETEPAY",
-        status: "INITIATED"
+        status: "INITIATED",
+        gatewayPaymentId: decrypted.paymentId?.toString() || null
       }
     });
 
@@ -1405,14 +1559,13 @@ exports.studentGeneratePaymentLink = async (req, res, next) => {
       terminalId: process.env.GETEPAY_TERMINAL_ID,
       amount: payment.totalAmount.toString(),
       merchantTransactionId: payment.txnId,
-      transactionDate: new Date().toISOString(),
+      transactionDate: moment().format("DD-MM-YYYY HH:mm:ss"),
       ru: returnUrl,
       callbackUrl: callbackUrl,
       currency: "INR",
       paymentMode: "ALL",
-      bankId: "455",
       txnType: "single",
-      productType: "IPG",
+      productType: "PAYMENT",
       txnNote: `Payment for ${payment.student.name} - ${payment.receiptNo}`,
       udf1: payment.student.phone || "",
       udf2: payment.student.email || "",
@@ -1423,33 +1576,83 @@ exports.studentGeneratePaymentLink = async (req, res, next) => {
       udf7: "",
       udf8: "",
       udf9: "",
-      udf10: ""
+      udf10: "",
+      vpa: process.env.GETEPAY_TERMINAL_ID
     };
 
     // Initialize encryption
-    const enc = new GcmPgEncryption(
+    console.log(`🔑 Initializing encryption for payment gateway...`);
+    const enc = new GetEpayEncryption(
       process.env.GETEPAY_IV,
-      process.env.GETEPAY_KEY
+      process.env.GETEPAY_KEY,
+      process.env.NODE_ENV === 'production'
     );
 
     const encrypted = await enc.encrypt(JSON.stringify(payload));
 
-    // Call GetEpay API
-    const response = await axios.post(process.env.GETEPAY_URL, {
-      mid: process.env.GETEPAY_MID,
-      terminalId: process.env.GETEPAY_TERMINAL_ID,
-      req: encrypted
-    });
+    // Call GetEpay API with proper error handling
+    let response;
+    try {
+      response = await axios.post(process.env.GETEPAY_URL, {
+        mid: process.env.GETEPAY_MID,
+        terminalId: process.env.GETEPAY_TERMINAL_ID,
+        req: encrypted
+      }, {
+        timeout: 60000, // 60 second timeout for production
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        validateStatus: function (status) {
+          return status >= 200 && status < 300;
+        }
+      });
+    } catch (axiosError) {
+      console.error('❌ GetEpay API Error in studentGeneratePaymentLink:', {
+        status: axiosError.response?.status,
+        statusText: axiosError.response?.statusText,
+        data: axiosError.response?.data,
+        message: axiosError.message,
+        code: axiosError.code
+      });
+      
+      if (axiosError.code === 'ECONNABORTED') {
+        throw new AppError('Payment gateway request timeout. Please try again.', 504);
+      } else if (axiosError.response?.status === 502 || axiosError.response?.status === 503) {
+        throw new AppError('Payment gateway temporarily unavailable. Please try again later.', 502);
+      } else if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
+        throw new AppError('Payment gateway authentication failed. Please contact support.', 502);
+      } else {
+        throw new AppError(`Payment gateway error: ${axiosError.message}`, 502);
+      }
+    }
+
+    // Check if response is valid
+    if (!response.data || !response.data.response) {
+      console.error('❌ Invalid response from GetEpay');
+      throw new AppError('Invalid response from payment gateway', 502);
+    }
 
     // Decrypt response
-    const decrypted = JSON.parse(await enc.decrypt(response.data.response));
+    let decrypted;
+    try {
+      const decryptedStr = await enc.decrypt(response.data.response);
+      if (!decryptedStr) {
+        throw new Error('Decryption returned empty string');
+      }
+      decrypted = JSON.parse(decryptedStr);
+    } catch (decryptError) {
+      console.error('❌ Decryption error:', decryptError.message);
+      throw new AppError(`Failed to decrypt payment gateway response: ${decryptError.message}`, 502);
+    }
 
     // Update payment with gateway reference
     await prisma.payment.update({
       where: { id: paymentId },
       data: {
         gateway: "GETEPAY",
-        status: "INITIATED"
+        status: "INITIATED",
+        gatewayPaymentId: decrypted.paymentId?.toString() || null
       }
     });
 

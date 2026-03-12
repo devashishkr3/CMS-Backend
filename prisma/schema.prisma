@@ -380,12 +380,13 @@ model Payment {
   studentId   String
   admissionId String?
 
-  totalAmount Decimal
-  status      PaymentStatus
-  gateway     String
-  txnId       String        @unique
-  referenceNo String?
-  bankTxnNo   String?
+  totalAmount      Decimal
+  status           PaymentStatus
+  gateway          String
+  txnId            String        @unique
+  gatewayPaymentId String?       // GetEpay payment ID from response
+  referenceNo      String?
+  bankTxnNo        String?
 
   receiptNo  String  @unique
   receiptUrl String?
