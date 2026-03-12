@@ -1424,20 +1424,59 @@ exports.generatePaymentLink = async (req, res, next) => {
         },
         validateStatus: function (status) {
           return status >= 200 && status < 300; // Accept only 2xx status
-        }
+        },
+        responseType: 'json',
+        maxRedirects: 5,
+        transformResponse: [(data) => {
+          try {
+            if (typeof data === 'string') {
+              // Check if it's HTML error page
+              if (data.trim().startsWith('<!DOCTYPE') || data.trim().startsWith('<html')) {
+                console.error('❌ Received HTML response from GetEpay - gateway authentication/authorization failed');
+                throw new Error('Gateway returned HTML error page - check credentials and endpoint');
+              }
+              return JSON.parse(data);
+            }
+            return data;
+          } catch (e) {
+            console.error('❌ Response transformation error:', e.message);
+            throw e;
+          }
+        }]
       });
     } catch (axiosError) {
-      console.error('❌ GetEpay API Error:', {
+      console.error('❌ GetEpay API Error in generatePaymentLink:', {
         status: axiosError.response?.status,
         statusText: axiosError.response?.statusText,
-        data: axiosError.response?.data,
+        data: typeof axiosError.response?.data === 'string' 
+          ? axiosError.response.data.substring(0, 500) + '...' 
+          : axiosError.response?.data,
         message: axiosError.message,
-        code: axiosError.code
+        code: axiosError.code,
+        url: process.env.GETEPAY_URL
       });
       
-      // Provide more specific error messages
+      // Handle HTML error responses (authentication/authorization failures)
+      if (typeof axiosError.response?.data === 'string' && 
+          (axiosError.response.data.includes('<!DOCTYPE') || axiosError.response.data.includes('<html'))) {
+        console.error('❌ Gateway returned HTML error page. Common causes:');
+        console.error('   1. Invalid MID or Terminal ID credentials');
+        console.error('   2. Incorrect API endpoint URL (check port and path)');
+        console.error('   3. Network/firewall blocking the request');
+        console.error('   4. Gateway server is down or returning errors');
+        console.error('   5. Merchant account not activated for this endpoint');
+        throw new AppError(
+          `Payment gateway authentication failed. Please verify configuration:\n` +
+          `   • MID: ${process.env.GETEPAY_MID}\n` +
+          `   • Terminal ID: ${process.env.GETEPAY_TERMINAL_ID}\n` +
+          `   • Endpoint: ${process.env.GETEPAY_URL}\n` +
+          `   Contact support if credentials are correct.`,
+          502
+        );
+      }
+      
       if (axiosError.code === 'ECONNABORTED') {
-        throw new AppError('GetEpay API request timeout. Please try again.', 504);
+        throw new AppError('Payment gateway request timeout. Please try again.', 504);
       } else if (axiosError.response?.status === 502 || axiosError.response?.status === 503) {
         throw new AppError('Payment gateway temporarily unavailable. Please try again later.', 502);
       } else if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
@@ -1605,7 +1644,24 @@ exports.studentGeneratePaymentLink = async (req, res, next) => {
         },
         validateStatus: function (status) {
           return status >= 200 && status < 300;
-        }
+        },
+        responseType: 'json',
+        maxRedirects: 5,
+        transformResponse: [(data) => {
+          try {
+            if (typeof data === 'string') {
+              if (data.trim().startsWith('<!DOCTYPE') || data.trim().startsWith('<html')) {
+                console.error('❌ Received HTML response from GetEpay - gateway authentication/authorization failed');
+                throw new Error('Gateway returned HTML error page - check credentials and endpoint');
+              }
+              return JSON.parse(data);
+            }
+            return data;
+          } catch (e) {
+            console.error('❌ Response transformation error:', e.message);
+            throw e;
+          }
+        }]
       });
     } catch (axiosError) {
       console.error('❌ GetEpay API Error in studentGeneratePaymentLink:', {
