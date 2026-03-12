@@ -1,0 +1,280 @@
+{
+  "students": [
+    {
+      "name": "AMISHA KUMARI",
+      "fatherName": "VIPIN KUMAR",
+      "university_roll": "2443551020001",
+      "class_roll": "223"
+    },
+    {
+      "name": "ANANYA KUMARI",
+      "fatherName": "LALAN KUMAR SINGH",
+      "university_roll": "2443551020002",
+      "class_roll": "87"
+    },
+    {
+      "name": "ANJANI KUMARI",
+      "fatherName": "VINOD YADAV",
+      "university_roll": "2443551020003",
+      "class_roll": "300"
+    },
+    {
+      "name": "ARCHANA KUMARI",
+      "fatherName": "SIKENDRA MAHTO",
+      "university_roll": "2443551020004",
+      "class_roll": "136"
+    },
+    {
+      "name": "BABLI KUMARI",
+      "fatherName": "PAPPU KUMAR",
+      "university_roll": "2443551020005",
+      "class_roll": "270"
+    },
+    {
+      "name": "DEEPA KUMARI",
+      "fatherName": "BIPIN THAKUR",
+      "university_roll": "2443551020007",
+      "class_roll": "304"
+    },
+    {
+      "name": "DIVYA KUMARI",
+      "fatherName": "NITESH KUMAR",
+      "university_roll": "2443551020008",
+      "class_roll": "166"
+    },
+    {
+      "name": "FRUTI KUMARI",
+      "fatherName": "MANOJ YADAV",
+      "university_roll": "2443551020009",
+      "class_roll": "327"
+    },
+    {
+      "name": "GURIYA KUMARI",
+      "fatherName": "SHOBHAN YADAV",
+      "university_roll": "2443551020011",
+      "class_roll": "235"
+    },
+    {
+      "name": "JYOTI KUMARI",
+      "fatherName": "SHARVAN KUMAR",
+      "university_roll": "2443551020012",
+      "class_roll": "313"
+    },
+    {
+      "name": "JYOTI KUMARI",
+      "fatherName": "PRAMOD CHAUDHARY",
+      "university_roll": "2443551020013",
+      "class_roll": "123"
+    },
+    {
+      "name": "KAJAL KUMARI",
+      "fatherName": "RAM BABU PRASAD",
+      "university_roll": "2443551020014",
+      "class_roll": "186"
+    },
+    {
+      "name": "KAJAL KUMARI",
+      "fatherName": "JAYPAL RAY",
+      "university_roll": "2443551020015",
+      "class_roll": "187"
+    },
+    {
+      "name": "KARINA KUMARI",
+      "fatherName": "KAILASH YADAV",
+      "university_roll": "2443551020016",
+      "class_roll": "128"
+    },
+    {
+      "name": "KOMAL KUMARI",
+      "fatherName": "DINESH MAHTO",
+      "university_roll": "2443551020017",
+      "class_roll": "127"
+    },
+    {
+      "name": "LOVELY KUMARI",
+      "fatherName": "RAMSAMUJH YADAV",
+      "university_roll": "2443551020019",
+      "class_roll": "236"
+    },
+    {
+      "name": "MANISHA KUMARI",
+      "fatherName": "PRAMOD YADAV",
+      "university_roll": "2443551020021",
+      "class_roll": "177"
+    },
+    {
+      "name": "MANISHA KUMARI",
+      "fatherName": "BHUSHAN KUMAR",
+      "university_roll": "2443551020022",
+      "class_roll": "151"
+    },
+    {
+      "name": "MONI KUMARI",
+      "fatherName": "PAWAN RAWAT",
+      "university_roll": "2443551020023",
+      "class_roll": "140"
+    },
+    {
+      "name": "NISHA KUMARI",
+      "fatherName": "SUKHLAL SAHNI",
+      "university_roll": "2443551020024",
+      "class_roll": "244"
+    },
+    {
+      "name": "NISHU RAJ",
+      "fatherName": "JAY PRAKASH RAM",
+      "university_roll": "2443551020026",
+      "class_roll": "280"
+    },
+    {
+      "name": "NITU KUMARI",
+      "fatherName": "SAHDEV MAHTO",
+      "university_roll": "2443551020027",
+      "class_roll": "234"
+    },
+    {
+      "name": "PAYAL KUMARI",
+      "fatherName": "BABLU SINGH",
+      "university_roll": "2443551020028",
+      "class_roll": "295"
+    },
+    {
+      "name": "PRITI KUMARI",
+      "fatherName": "UDAY KUMAR",
+      "university_roll": "2443551020029",
+      "class_roll": "53"
+    },
+    {
+      "name": "PRITI KUMARI",
+      "fatherName": "GOPAL MANDAL",
+      "university_roll": "2443551020030",
+      "class_roll": "200"
+    },
+    {
+      "name": "PUJA KUMARI",
+      "fatherName": "SAKALDEV YADAV",
+      "university_roll": "2443551020031",
+      "class_roll": "146"
+    },
+    {
+      "name": "PUJA KUMARI",
+      "fatherName": "RAMKISHOR YADAV",
+      "university_roll": "2443551020032",
+      "class_roll": "197"
+    },
+    {
+      "name": "PUTUL KUMARI",
+      "fatherName": "RAMBACHAN MAHTO",
+      "university_roll": "2443551020033",
+      "class_roll": "322"
+    },
+    {
+      "name": "RAJANI KUMARI",
+      "fatherName": "RAJENDRA RAVIDAS",
+      "university_roll": "2443551020034",
+      "class_roll": "238"
+    },
+    {
+      "name": "RANI KUMARI",
+      "fatherName": "POKH NARAYAN MAHTO",
+      "university_roll": "2443551020035",
+      "class_roll": "102"
+    },
+    {
+      "name": "RITU KUMARI",
+      "fatherName": "SHAILENDRA KUMAR",
+      "university_roll": "2443551020036",
+      "class_roll": "263"
+    },
+    {
+      "name": "ROKI KUMARI",
+      "fatherName": "NIRANJAN SINGH",
+      "university_roll": "2443551020037",
+      "class_roll": "248"
+    },
+    {
+      "name": "SABNAM KUMARI",
+      "fatherName": "VIJAY MAHTO",
+      "university_roll": "2443551020038",
+      "class_roll": "321"
+    },
+    {
+      "name": "SALONI KUMARI",
+      "fatherName": "PAWAN RAWAT",
+      "university_roll": "2443551020039",
+      "class_roll": "141"
+    },
+    {
+      "name": "SANU KUMARI",
+      "fatherName": "SRI RAM SINGH",
+      "university_roll": "2443551020040",
+      "class_roll": "338"
+    },
+    {
+      "name": "SITA KUMARI",
+      "fatherName": "BINOD YADAV",
+      "university_roll": "2443551020042",
+      "class_roll": "283"
+    },
+    {
+      "name": "SOHANI KUMARI",
+      "fatherName": "MUKESH SINGH",
+      "university_roll": "2443551020044",
+      "class_roll": "27"
+    },
+    {
+      "name": "SONALI KUMARI",
+      "fatherName": "AMARJIT RAY",
+      "university_roll": "2443551020045",
+      "class_roll": "319"
+    },
+    {
+      "name": "SONALI KUMARI",
+      "fatherName": "MUKESH KUMAR SINGH",
+      "university_roll": "2443551020046",
+      "class_roll": "333"
+    },
+    {
+      "name": "SONALI KUMARI",
+      "fatherName": "RAMPUKAR PASWAN",
+      "university_roll": "2443551020047",
+      "class_roll": "309"
+    },
+    {
+      "name": "SONIKA KUMARI",
+      "fatherName": "SHAMBHU SINGH",
+      "university_roll": "2443551020048",
+      "class_roll": "207"
+    },
+    {
+      "name": "SUDHA KUMARI",
+      "fatherName": "ABHIMANYU MISTRI",
+      "university_roll": "2443551020049",
+      "class_roll": "261"
+    },
+    {
+      "name": "SUPRI KUMARI",
+      "fatherName": "SUNIL PRASAD",
+      "university_roll": "2443551020050",
+      "class_roll": "92"
+    },
+    {
+      "name": "TANNU BHARTI",
+      "fatherName": "MANISH KUMAR",
+      "university_roll": "2443551020052",
+      "class_roll": "332"
+    },
+    {
+      "name": "VARSHA KUMARI",
+      "fatherName": "LAKSHMAN SAW",
+      "university_roll": "2443551020054",
+      "class_roll": "279"
+    }
+  ],
+  "courseId": "56f51f44-5432-426d-aae0-a7718527e7ff",
+  "sessionId": "fcb62f6c-fc0d-4e3e-acd2-d1fdd919496d",
+  "semesterId": "388669fd-2744-4a3e-8f86-5aaba712cb0e",
+  "departmentId": "b8266411-6f62-4207-8ce7-2200ffc7156c",
+  "academicYear": "2024-25",
+  "admissionType": "NEW"
+}

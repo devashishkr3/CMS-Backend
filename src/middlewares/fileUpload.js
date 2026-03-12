@@ -34,14 +34,14 @@ const upload = multer({
   }
 });
 
-// Single file upload middleware
-exports.uploadSingleFile = upload.single('file');
+// Export upload instance and helpers
+const uploadMiddleware = upload;
 
-// Multiple files upload middleware
-exports.uploadMultipleFiles = upload.array('files', 5); // Max 5 files
-
-// Handle file upload errors
-exports.handleFileUploadErrors = (err, req, res, next) => {
+module.exports = uploadMiddleware;
+module.exports.upload = uploadMiddleware;
+module.exports.uploadSingleFile = upload.single('file');
+module.exports.uploadMultipleFiles = upload.array('files', 5); // Max 5 files
+module.exports.handleFileUploadErrors = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return next(new AppError('File size too large. Maximum file size is 5MB.', 400));

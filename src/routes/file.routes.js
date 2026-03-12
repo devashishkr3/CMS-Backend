@@ -3,7 +3,7 @@ const router = express.Router();
 
 // Import middleware
 const { protect, restrictTo } = require('../middlewares/auth.middleware');
-const { uploadSingleFile, handleFileUploadErrors } = require('../middlewares/fileUpload');
+const uploadMiddleware = require('../middlewares/fileUpload');
 const joiValidator = require("../middlewares/joiValidator");
 
 // Import validation schemas
@@ -26,8 +26,8 @@ const {
 router.post(
   '/', 
   // restrictTo('ADMIN'), 
-  uploadSingleFile, 
-  handleFileUploadErrors,
+  uploadMiddleware.uploadSingleFile, 
+  uploadMiddleware.handleFileUploadErrors,
   joiValidator(uploadFile, "body"), 
   uploadFileController
 );

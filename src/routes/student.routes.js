@@ -4,9 +4,10 @@ const router = express.Router();
 // Import middleware
 const { protect, restrictTo } = require('../middlewares/auth.middleware');
 const joiValidator = require("../middlewares/joiValidator");
+const upload = require('../middlewares/fileUpload'); // Add file upload middleware
 
 // Import validation schemas
-const { createStudent, updateStudent, assignSemester, verifyStudentSchema } = require("../validation/student.validation");
+const { createStudent, updateStudent, assignSemester, verifyStudentSchema, bulkCreateStudents } = require("../validation/student.validation");
 
 // Import controllers
 const {
@@ -18,7 +19,10 @@ const {
   assignSemester: assignSemesterController,
   updateStudentSemesterStatus,
   verifyStudentForAdmission,
-  clearAllStudentPaymentStatuses
+  clearAllStudentPaymentStatuses,
+  bulkCreateStudents: bulkCreateStudentsController,
+  bulkUploadStudentsFromExcel,
+  bulkUpdateStudents
 } = require('../controllers/student.controller');
 
 const {
@@ -44,5 +48,10 @@ router.delete('/:id', restrictTo('ADMIN'), deleteStudent);
 // Semester Assignment Routes
 router.post('/:id/semesters', restrictTo('ADMIN', 'HOD'), joiValidator(assignSemester, "body"), assignSemesterController);
 router.patch('/:studentId/semesters/:semesterId', restrictTo('ADMIN', 'HOD'), updateStudentSemesterStatus);
+
+// Bulk Operations Routes
+router.post('/bulk/create', restrictTo('ADMIN', 'HOD'), joiValidator(bulkCreateStudents, "body"), bulkCreateStudentsController);
+router.post('/bulk/upload-excel', restrictTo('ADMIN', 'HOD'), upload.single('file'), bulkUploadStudentsFromExcel);
+router.patch('/bulk/update', restrictTo('ADMIN', 'HOD'), bulkUpdateStudents);
 
 module.exports = router;

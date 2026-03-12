@@ -2,7 +2,8 @@ const prisma = require('../config/prisma');
 const AppError = require('../utils/error');
 const Joi = require('joi');
 const { logAudit } = require('../utils/auditLogger');
-const { createStudent, updateStudent, assignSemester, verifyStudentSchema } = require('../validation/student.validation');
+const { createStudent, updateStudent, assignSemester, verifyStudentSchema, bulkCreateStudents } = require('../validation/student.validation');
+const { parseExcelStudents, validateParsedStudents } = require('../utils/excelParser');
 
 /**
  * Create New students and Add old Students also
@@ -224,172 +225,387 @@ exports.createStudent = async (req, res, next) => {
   }
 };
 
+/**
+ * Bulk Create Students (JSON)
+ * Access: ADMIN, HOD
+ */
+exports.bulkCreateStudents = async (req, res, next) => {
+  try {
+    // Validate request body
+    const { error, value } = bulkCreateStudents.validate(req.body);
+    if (error) {
+      return next(new AppError(error.details[0].message, 400));
+    }
 
-// exports.createStudent = async (req, res, next) => {
-//   try {
-//     const { error, value } = createStudent.validate(req.body);
-//     if (error) {
-//       return next(new AppError(error.details[0].message, 400));
-//     }
+    const {
+      students,
+      courseId,
+      sessionId,
+      semesterId,
+      departmentId,
+      academicYear = '2024-25',
+      admissionType = 'NEW'
+    } = value;
 
-//     const {
-//       name,
-//       email,
-//       phone,
-//       dob,
-//       fatherName,
-//       gender,
-//       category,
-//       address,
-//       photoUrl,
-//       departmentId,
-//       courseId,
-//       sessionId,
-//       semesterId,
-//       admissionType,
-//       academicYear
-//     } = value;
+    // Verify course, session, and semester exist
+    const [course, session, semester] = await Promise.all([
+      prisma.course.findUnique({ where: { id: courseId } }),
+      prisma.session.findUnique({ where: { id: sessionId } }),
+      prisma.semester.findUnique({ where: { id: semesterId } })
+    ]);
 
-//     // DUPLICATE EMAIL
-//     const emailExists = await prisma.student.findUnique({ where: { email } });
-//     if (emailExists) {
-//       return next(new AppError('Student with this email already exists', 400));
-//     }
+    if (!course) {
+      return next(new AppError('Course not found', 404));
+    }
+    if (!session) {
+      return next(new AppError('Session not found', 404));
+    }
+    if (!semester) {
+      return next(new AppError('Semester not found', 404));
+    }
+    if (semester.courseId !== courseId) {
+      return next(new AppError('Semester does not belong to the selected course', 400));
+    }
 
-//     // DEPARTMENT
-//     const department = await prisma.department.findUnique({
-//       where: { id: departmentId }
-//     });
-//     if (!department) {
-//       return next(new AppError('Department not found', 404));
-//     }
+    // Check for duplicate university rolls in database
+    const existingRolls = await prisma.student.findMany({
+      where: {
+        university_roll: {
+          in: students.map(s => s.university_roll)
+        }
+      },
+      select: { university_roll: true }
+    });
 
-//     // COURSE
-//     const course = await prisma.course.findUnique({
-//       where: { id: courseId }
-//     });
-//     if (!course || course.departmentId !== departmentId) {
-//       return next(new AppError('Invalid course for department', 400));
-//     }
+    const existingRollSet = new Set(existingRolls.map(r => r.university_roll));
+    const duplicates = students.filter(s => existingRollSet.has(s.university_roll));
 
-//     // SESSION
-//     const session = await prisma.session.findUnique({
-//       where: { id: sessionId }
-//     });
-//     if (!session) {
-//       return next(new AppError('Session not found', 404));
-//     }
+    if (duplicates.length > 0) {
+      return next(new AppError(
+        `Duplicate university rolls found: ${duplicates.map(d => d.university_roll).join(', ')}`,
+        400
+      ));
+    }
 
-//     // COURSE SESSION
-//     const courseSession = await prisma.courseSession.findUnique({
-//       where: {
-//         courseId_sessionId: { courseId, sessionId }
-//       }
-//     });
-//     if (!courseSession) {
-//       return next(new AppError('Course not available in selected session', 400));
-//     }
+    // Check for duplicate university rolls within the batch
+    const rollCounts = {};
+    students.forEach(s => {
+      rollCounts[s.university_roll] = (rollCounts[s.university_roll] || 0) + 1;
+    });
 
-//     // SEMESTER
-//     const semester = await prisma.semester.findUnique({
-//       where: { id: semesterId }
-//     });
-//     if (!semester || semester.courseId !== courseId) {
-//       return next(new AppError('Invalid semester for selected course', 400));
-//     }
+    const internalDuplicates = Object.entries(rollCounts)
+      .filter(([_, count]) => count > 1)
+      .map(([roll, _]) => roll);
 
-//     // REG & UAN
-//     const reg_no = `REG${Date.now()}`;
-//     const uan_no = `UAN${Date.now()}`;
+    if (internalDuplicates.length > 0) {
+      return next(new AppError(
+        `Duplicate university rolls within batch: ${internalDuplicates.join(', ')}`,
+        400
+      ));
+    }
 
-//     // TRANSACTION
-//     const result = await prisma.$transaction(async (tx) => {
+    // Process students in batches
+    const BATCH_SIZE = 50;
+    const createdStudents = [];
+    const errors = [];
 
-//       // STUDENT
-//       const student = await tx.student.create({
-//         data: {
-//           reg_no,
-//           uan_no,
-//           name,
-//           email,
-//           phone,
-//           dob: dob ? new Date(dob) : undefined,
-//           fatherName,
-//           gender,
-//           category,
-//           address,
-//           photoUrl,
-//           courseId,
-//           sessionId,
-//           status: 'ACTIVE'
-//         }
-//       });
+    for (let i = 0; i < students.length; i += BATCH_SIZE) {
+      const batch = students.slice(i, i + BATCH_SIZE);
 
-//       // STUDENT SEMESTER
-//       await tx.studentSemester.create({
-//         data: {
-//           studentId: student.id,
-//           semesterId,
-//           status: 'ONGOING',
-//           feePaid: false,
-//           startDate: new Date()
-//         }
-//       });
+      const batchResults = await Promise.all(
+        batch.map(async (studentData, index) => {
+          try {
+            const globalIndex = i + index;
 
-//       // ADMISSION
-//       const admission = await tx.admission.create({
-//         data: {
-//           studentId: student.id,
-//           courseId,
-//           departmentId,
-//           sessionId,
-//           semesterId,
-//           type: admissionType,
-//           academicYear,
-//           status: 'CONFIRMED'
-//         }
-//       });
+            // Generate reg_no and uan_no if not provided
+            const reg_no = studentData.reg_no || `REG${Date.now()}${globalIndex}`;
+            const uan_no = studentData.uan_no || `UAN${Date.now()}${globalIndex}`;
 
-//       // ADMISSION HISTORY
-//       await tx.admissionHistory.create({
-//         data: {
-//           admissionId: admission.id,
-//           fromStatus: 'INITIATED',
-//           toStatus: 'CONFIRMED',
-//           changedById: req.user.id
-//         }
-//       });
+            // Create student record
+            const student = await prisma.student.create({
+              data: {
+                reg_no,
+                uan_no,
+                class_roll: studentData.class_roll || `${course.code}-${semester.number}-${globalIndex + 1}`,
+                university_roll: studentData.university_roll,
+                name: studentData.name,
+                email: studentData.email || null,
+                phone: studentData.phone || null,
+                dob: studentData.dob ? new Date(studentData.dob) : null,
+                fatherName: studentData.fatherName,
+                gender: studentData.gender || null,
+                category: studentData.category || null,
+                address: studentData.address || null,
+                courseId,
+                sessionId,
+                status: 'ACTIVE'
+              }
+            });
 
-//       // AUDIT LOG
-//       await logAudit({
-//         userId: req.user.id,
-//         action: 'CREATE_STUDENT_WITH_ADMISSION',
-//         entity: 'Student',
-//         entityId: student.id,
-//         payload: {
-//           courseId,
-//           departmentId,
-//           sessionId,
-//           semesterId,
-//           admissionType,
-//           academicYear
-//         },
-//         req
-//       });
+            // Create student semester assignment
+            await prisma.studentSemester.create({
+              data: {
+                studentId: student.id,
+                semesterId,
+                status: 'ONGOING',
+                feePaid: false,
+                startDate: new Date()
+              }
+            });
 
-//       return student;
-//     });
+            // Create admission record
+            if (departmentId) {
+              const admission = await prisma.admission.create({
+                data: {
+                  studentId: student.id,
+                  courseId,
+                  departmentId,
+                  sessionId,
+                  semesterId,
+                  type: admissionType,
+                  academicYear,
+                  status: 'CONFIRMED'
+                }
+              });
 
-//     res.status(201).json({
-//       status: 'success',
-//       message: 'Student admitted successfully',
-//       data: result
-//     });
+              // Create admission history
+              await prisma.admissionHistory.create({
+                data: {
+                  admissionId: admission.id,
+                  fromStatus: 'INITIATED',
+                  toStatus: 'CONFIRMED',
+                  changedById: req.user.id
+                }
+              });
+            }
 
-//   } catch (err) {
-//     next(err);
-//   }
-// };
+            return { success: true, student };
+          } catch (error) {
+            return {
+              success: false,
+              index: globalIndex,
+              university_roll: studentData.university_roll,
+              error: error.message
+            };
+          }
+        })
+      );
+
+      batchResults.forEach(result => {
+        if (result.success) {
+          createdStudents.push(result.student);
+        } else {
+          errors.push(result);
+        }
+      });
+    }
+
+    // Log audit entry
+    await logAudit({
+      userId: req.user.id,
+      action: 'BULK_CREATE_STUDENTS',
+      entity: 'Student',
+      entityId: 'bulk',
+      payload: {
+        totalRecords: students.length,
+        successCount: createdStudents.length,
+        failureCount: errors.length,
+        courseId,
+        sessionId,
+        semesterId,
+        departmentId
+      },
+      req
+    });
+
+    res.status(201).json({
+      status: 'success',
+      message: `Successfully created ${createdStudents.length} out of ${students.length} students`,
+      data: {
+        totalRecords: students.length,
+        successCount: createdStudents.length,
+        failureCount: errors.length,
+        students: createdStudents,
+        errors: errors.length > 0 ? errors : undefined
+      }
+    });
+
+  } catch (err) {
+    console.error('Bulk create error:', err);
+    next(err);
+  }
+};
+
+/**
+ * Bulk Upload Students from Excel File
+ * Access: ADMIN, HOD
+ */
+exports.bulkUploadStudentsFromExcel = async (req, res, next) => {
+  try {
+    // Check if file is provided
+    if (!req.file) {
+      return next(new AppError('Please upload an Excel file (.xlsx or .xls)', 400));
+    }
+
+    // Parse Excel file
+    const parseResult = parseExcelStudents(req.file.buffer);
+
+    if (!parseResult.success) {
+      return next(new AppError(`Excel parsing failed: ${parseResult.error}`, 400));
+    }
+
+    // Validate parsed data
+    const validationResult = validateParsedStudents(parseResult.data);
+
+    if (!validationResult.isValid) {
+      return next(new AppError(
+        `Validation failed for ${validationResult.invalidCount} records`,
+        400,
+        validationResult.errors
+      ));
+    }
+
+    // Extract fixed IDs from request body
+    const {
+      courseId,
+      sessionId,
+      semesterId,
+      departmentId,
+      academicYear = '2024-25',
+      admissionType = 'NEW'
+    } = req.body;
+
+    // Validate required IDs
+    if (!courseId || !sessionId || !semesterId) {
+      return next(new AppError('courseId, sessionId, and semesterId are required', 400));
+    }
+
+    // Prepare students array for bulk creation
+    const students = validationResult.validStudents.map(student => ({
+      name: student.name,
+      fatherName: student.fatherName,
+      university_roll: student.university_roll,
+      class_roll: student.class_roll,
+      majorSubject: student.majorSubject,
+      minorSubject: student.minorSubject
+    }));
+
+    // Call bulk create logic
+    req.body = {
+      students,
+      courseId,
+      sessionId,
+      semesterId,
+      departmentId,
+      academicYear,
+      admissionType
+    };
+
+    // Reuse bulkCreateStudents logic
+    return exports.bulkCreateStudents(req, res, next);
+
+  } catch (err) {
+    console.error('Excel upload error:', err);
+    next(err);
+  }
+};
+
+/**
+ * Bulk Update Students University Roll
+ * Access: ADMIN, HOD
+ */
+exports.bulkUpdateStudents = async (req, res, next) => {
+  try {
+    const { students } = req.body;
+
+    if (!Array.isArray(students) || students.length === 0) {
+      return next(new AppError('Students array is required and must not be empty', 400));
+    }
+
+    // Validate each student has university_roll
+    const invalidStudents = students.filter(
+      s => !s.university_roll || !s.id
+    );
+
+    if (invalidStudents.length > 0) {
+      return next(new AppError(
+        'Each student must have id and university_roll fields',
+        400
+      ));
+    }
+
+    // Update students in batches
+    const BATCH_SIZE = 50;
+    const updatedStudents = [];
+    const errors = [];
+
+    for (let i = 0; i < students.length; i += BATCH_SIZE) {
+      const batch = students.slice(i, i + BATCH_SIZE);
+
+      const batchResults = await Promise.all(
+        batch.map(async (studentData, index) => {
+          try {
+            const updatedStudent = await prisma.student.update({
+              where: { id: studentData.id },
+              data: {
+                university_roll: studentData.university_roll,
+                class_roll: studentData.class_roll || undefined,
+                name: studentData.name || undefined,
+                fatherName: studentData.fatherName || undefined
+              }
+            });
+
+            return { success: true, student: updatedStudent };
+          } catch (error) {
+            return {
+              success: false,
+              id: studentData.id,
+              university_roll: studentData.university_roll,
+              error: error.message
+            };
+          }
+        })
+      );
+
+      batchResults.forEach(result => {
+        if (result.success) {
+          updatedStudents.push(result.student);
+        } else {
+          errors.push(result);
+        }
+      });
+    }
+
+    // Log audit entry
+    await logAudit({
+      userId: req.user.id,
+      action: 'BULK_UPDATE_STUDENTS',
+      entity: 'Student',
+      entityId: 'bulk',
+      payload: {
+        totalRecords: students.length,
+        successCount: updatedStudents.length,
+        failureCount: errors.length
+      },
+      req
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: `Successfully updated ${updatedStudents.length} out of ${students.length} students`,
+      data: {
+        totalRecords: students.length,
+        successCount: updatedStudents.length,
+        failureCount: errors.length,
+        students: updatedStudents,
+        errors: errors.length > 0 ? errors : undefined
+      }
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
 
 /**
  * Get all students with filtering + pagination
@@ -486,126 +702,6 @@ exports.getAllStudents = async (req, res, next) => {
     next(error);
   }
 };
-
-// /**
-//  * Get all students with filtering + pagination
-//  * Access: ADMIN, HOD
-//  */
-// exports.getAllStudents = async (req, res, next) => {
-//   try {
-//     const {
-//       status,
-//       courseId,
-//       sessionId,
-//       departmentId,
-//       semesterId,
-//       search,
-//       page = 1,
-//       limit = 10
-//     } = req.query;
-
-//     // Convert to number
-//     const pageNumber = Math.max(Number(page), 1);
-//     const pageSize = Math.min(Number(limit), 100);
-//     const skip = (pageNumber - 1) * pageSize;
-
-//     // Build where clause
-//     const where = { isDeleted: false };
-
-//     if (status) {
-//       where.status = status;
-//     }
-
-//     if (courseId) {
-//       where.courseId = courseId;
-//     }
-
-//     if (sessionId) {
-//       where.sessionId = sessionId;
-//     }
-
-//     // NEW FILTERS
-//     if (departmentId) {
-//       where.departmentId = departmentId;
-//     }
-
-//     if (semesterId) {
-//       where.semesterId = semesterId;
-//     }
-
-//     if (search) {
-//       where.OR = [
-//         { name: { contains: search, mode: "insensitive" } },
-//         { email: { contains: search, mode: "insensitive" } },
-//         { reg_no: { contains: search, mode: "insensitive" } }
-//       ];
-//     }
-
-//     // Count total records
-//     const totalRecords = await prisma.student.count({ where });
-
-//     // Fetch paginated students
-//     const students = await prisma.student.findMany({
-//       where,
-//       skip,
-//       take: pageSize,
-//       include: {
-//         department: {
-//           select: {
-//             id: true,
-//             code: true,
-//             name: true
-//           }
-//         },
-//         course: {
-//           select: {
-//             id: true,
-//             code: true,
-//             name: true
-//           }
-//         },
-//         semester: {
-//           select: {
-//             id: true,
-//             name: true,
-//             number: true
-//           }
-//         },
-//         session: {
-//           select: {
-//             id: true,
-//             name: true,
-//             startYear: true,
-//             endYear: true
-//           }
-//         }
-//       },
-//       orderBy: {
-//         createdAt: "desc"
-//       }
-//     });
-
-//     const totalPages = Math.ceil(totalRecords / pageSize);
-
-//     res.status(200).json({
-//       status: "success",
-//       results: students.length,
-//       pagination: {
-//         page: pageNumber,
-//         limit: pageSize,
-//         totalRecords,
-//         totalPages,
-//         hasNextPage: pageNumber < totalPages,
-//         hasPrevPage: pageNumber > 1
-//       },
-//       data: {
-//         students
-//       }
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
 
 /**
  * Get student by ID
@@ -1307,5 +1403,290 @@ exports.verifyStudentForAdmission = async (req, res, next) => {
 
 //   } catch (e) {
 //     next(e);
+//   }
+// };
+// exports.createStudent = async (req, res, next) => {
+//   try {
+//     const { error, value } = createStudent.validate(req.body);
+//     if (error) {
+//       return next(new AppError(error.details[0].message, 400));
+//     }
+
+//     const {
+//       name,
+//       email,
+//       phone,
+//       dob,
+//       fatherName,
+//       gender,
+//       category,
+//       address,
+//       photoUrl,
+//       departmentId,
+//       courseId,
+//       sessionId,
+//       semesterId,
+//       admissionType,
+//       academicYear
+//     } = value;
+
+//     // DUPLICATE EMAIL
+//     const emailExists = await prisma.student.findUnique({ where: { email } });
+//     if (emailExists) {
+//       return next(new AppError('Student with this email already exists', 400));
+//     }
+
+//     // DEPARTMENT
+//     const department = await prisma.department.findUnique({
+//       where: { id: departmentId }
+//     });
+//     if (!department) {
+//       return next(new AppError('Department not found', 404));
+//     }
+
+//     // COURSE
+//     const course = await prisma.course.findUnique({
+//       where: { id: courseId }
+//     });
+//     if (!course || course.departmentId !== departmentId) {
+//       return next(new AppError('Invalid course for department', 400));
+//     }
+
+//     // SESSION
+//     const session = await prisma.session.findUnique({
+//       where: { id: sessionId }
+//     });
+//     if (!session) {
+//       return next(new AppError('Session not found', 404));
+//     }
+
+//     // COURSE SESSION
+//     const courseSession = await prisma.courseSession.findUnique({
+//       where: {
+//         courseId_sessionId: { courseId, sessionId }
+//       }
+//     });
+//     if (!courseSession) {
+//       return next(new AppError('Course not available in selected session', 400));
+//     }
+
+//     // SEMESTER
+//     const semester = await prisma.semester.findUnique({
+//       where: { id: semesterId }
+//     });
+//     if (!semester || semester.courseId !== courseId) {
+//       return next(new AppError('Invalid semester for selected course', 400));
+//     }
+
+//     // REG & UAN
+//     const reg_no = `REG${Date.now()}`;
+//     const uan_no = `UAN${Date.now()}`;
+
+//     // TRANSACTION
+//     const result = await prisma.$transaction(async (tx) => {
+
+//       // STUDENT
+//       const student = await tx.student.create({
+//         data: {
+//           reg_no,
+//           uan_no,
+//           name,
+//           email,
+//           phone,
+//           dob: dob ? new Date(dob) : undefined,
+//           fatherName,
+//           gender,
+//           category,
+//           address,
+//           photoUrl,
+//           courseId,
+//           sessionId,
+//           status: 'ACTIVE'
+//         }
+//       });
+
+//       // STUDENT SEMESTER
+//       await tx.studentSemester.create({
+//         data: {
+//           studentId: student.id,
+//           semesterId,
+//           status: 'ONGOING',
+//           feePaid: false,
+//           startDate: new Date()
+//         }
+//       });
+
+//       // ADMISSION
+//       const admission = await tx.admission.create({
+//         data: {
+//           studentId: student.id,
+//           courseId,
+//           departmentId,
+//           sessionId,
+//           semesterId,
+//           type: admissionType,
+//           academicYear,
+//           status: 'CONFIRMED'
+//         }
+//       });
+
+//       // ADMISSION HISTORY
+//       await tx.admissionHistory.create({
+//         data: {
+//           admissionId: admission.id,
+//           fromStatus: 'INITIATED',
+//           toStatus: 'CONFIRMED',
+//           changedById: req.user.id
+//         }
+//       });
+
+//       // AUDIT LOG
+//       await logAudit({
+//         userId: req.user.id,
+//         action: 'CREATE_STUDENT_WITH_ADMISSION',
+//         entity: 'Student',
+//         entityId: student.id,
+//         payload: {
+//           courseId,
+//           departmentId,
+//           sessionId,
+//           semesterId,
+//           admissionType,
+//           academicYear
+//         },
+//         req
+//       });
+
+//       return student;
+//     });
+
+//     res.status(201).json({
+//       status: 'success',
+//       message: 'Student admitted successfully',
+//       data: result
+//     });
+
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
+// /**
+//  * Get all students with filtering + pagination
+//  * Access: ADMIN, HOD
+//  */
+// exports.getAllStudents = async (req, res, next) => {
+//   try {
+//     const {
+//       status,
+//       courseId,
+//       sessionId,
+//       departmentId,
+//       semesterId,
+//       search,
+//       page = 1,
+//       limit = 10
+//     } = req.query;
+
+//     // Convert to number
+//     const pageNumber = Math.max(Number(page), 1);
+//     const pageSize = Math.min(Number(limit), 100);
+//     const skip = (pageNumber - 1) * pageSize;
+
+//     // Build where clause
+//     const where = { isDeleted: false };
+
+//     if (status) {
+//       where.status = status;
+//     }
+
+//     if (courseId) {
+//       where.courseId = courseId;
+//     }
+
+//     if (sessionId) {
+//       where.sessionId = sessionId;
+//     }
+
+//     // NEW FILTERS
+//     if (departmentId) {
+//       where.departmentId = departmentId;
+//     }
+
+//     if (semesterId) {
+//       where.semesterId = semesterId;
+//     }
+
+//     if (search) {
+//       where.OR = [
+//         { name: { contains: search, mode: "insensitive" } },
+//         { email: { contains: search, mode: "insensitive" } },
+//         { reg_no: { contains: search, mode: "insensitive" } }
+//       ];
+//     }
+
+//     // Count total records
+//     const totalRecords = await prisma.student.count({ where });
+
+//     // Fetch paginated students
+//     const students = await prisma.student.findMany({
+//       where,
+//       skip,
+//       take: pageSize,
+//       include: {
+//         department: {
+//           select: {
+//             id: true,
+//             code: true,
+//             name: true
+//           }
+//         },
+//         course: {
+//           select: {
+//             id: true,
+//             code: true,
+//             name: true
+//           }
+//         },
+//         semester: {
+//           select: {
+//             id: true,
+//             name: true,
+//             number: true
+//           }
+//         },
+//         session: {
+//           select: {
+//             id: true,
+//             name: true,
+//             startYear: true,
+//             endYear: true
+//           }
+//         }
+//       },
+//       orderBy: {
+//         createdAt: "desc"
+//       }
+//     });
+
+//     const totalPages = Math.ceil(totalRecords / pageSize);
+
+//     res.status(200).json({
+//       status: "success",
+//       results: students.length,
+//       pagination: {
+//         page: pageNumber,
+//         limit: pageSize,
+//         totalRecords,
+//         totalPages,
+//         hasNextPage: pageNumber < totalPages,
+//         hasPrevPage: pageNumber > 1
+//       },
+//       data: {
+//         students
+//       }
+//     });
+//   } catch (error) {
+//     next(error);
 //   }
 // };
