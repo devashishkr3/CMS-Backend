@@ -1377,6 +1377,120 @@ exports.verifyStudentForAdmission = async (req, res, next) => {
 };
 
 
+/**
+ * Get Student Details By University Roll
+ * Public API
+ */
+
+exports.getStudentByUniversityRoll = async (req, res, next) => {
+  try {
+
+    /* ============================
+       1. GET INPUT
+    ============================ */
+
+    const { university_roll } = req.body;
+
+
+    /* ============================
+       2. FIND STUDENT
+    ============================ */
+
+    const student = await prisma.student.findUnique({
+      where: { university_roll }
+    });
+
+    if (!student) {
+      return next(new AppError("Student not found", 404));
+    }
+
+
+    /* ============================
+       3. FETCH FULL PROFILE
+    ============================ */
+
+    const profile = await prisma.student.findUnique({
+      where: { id: student.id },
+      include: {
+
+        course: {
+          select: {
+            id: true,
+            code: true,
+            name: true
+          }
+        },
+
+        session: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+
+        semesters: {
+          include: {
+            semester: {
+              select: {
+                number: true
+              }
+            }
+          },
+          orderBy: {
+            startDate: "desc"
+          }
+        },
+
+        admissions: {
+          orderBy: {
+            createdAt: "desc"
+          },
+          take: 1
+        }
+
+      }
+    });
+
+
+    /* ============================
+       4. RESPONSE
+    ============================ */
+
+    res.status(200).json({
+      status: "success",
+      message: "Student fetched successfully",
+      data: {
+
+        id: profile.id,
+        name: profile.name,
+        father_name: profile.father_name,
+        mother_name: profile.mother_name,
+
+        reg_no: profile.reg_no,
+        uan_no: profile.uan_no,
+        university_roll: profile.university_roll,
+        class_roll: profile.class_roll,
+
+        phone: profile.phone,
+        email: profile.email,
+
+        course: profile.course,
+        session: profile.session,
+
+        currentSemester:
+          profile.semesters[0]?.semester?.number || null,
+
+        lastAdmission:
+          profile.admissions[0] || null
+
+      }
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
+
 // exports.bulkCreateStudents = async (req, res, next) => {
 //   try {
 //     const students = req.body.students; // array
