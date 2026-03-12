@@ -10,6 +10,26 @@ class GetEpayEncryption {
     this.iv = iv;
     this.key = key;
     this.isProduction = isProduction; // Production uses AES/CBC, UAT uses AES/GCM
+    
+    // Handle case where IV might be Terminal ID (not Base64)
+    // In this case, we use MD5 hash of Terminal ID as IV
+    if (isProduction && !this._isValidBase64(iv)) {
+      console.log('⚠️  IV is not Base64, using MD5 hash of Terminal ID as IV');
+      // MD5 produces 32 hex chars = 16 bytes (perfect for AES-CBC)
+      this.md5Iv = crypto.createHash('md5').update(iv).digest('hex');
+    }
+  }
+
+  /**
+   * Check if string is valid Base64
+   */
+  _isValidBase64(str) {
+    try {
+      const buffer = Buffer.from(str, 'base64');
+      return Buffer.from(buffer).toString('base64') === str;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -37,32 +57,87 @@ class GetEpayEncryption {
   }
 
   /**
-   * Production Encryption - AES/CBC
-   * Uses simple IV and Key from environment
+   * Production Encryption - AES/CBC with EAS (Easy Encryption Scheme)
+   * Uses Base64 encoded IV and Key OR Terminal ID as IV (fallback)
    */
   _encryptCBC(plainText) {
-    const iv = Buffer.from(this.iv, 'base64');
-    const key = Buffer.from(this.key, 'base64');
-    
-    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-    let encrypted = cipher.update(plainText, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    return encrypted.toUpperCase();
+    try {
+      let iv, key;
+      
+      // Check if IV is Base64 or needs MD5 hashing
+      if (this.md5Iv) {
+        // Use MD5 hash of Terminal ID as IV (32 hex chars = 16 bytes)
+        iv = Buffer.from(this.md5Iv, 'hex');
+        key = Buffer.from(this.key, 'base64');
+      } else {
+        // Use Base64 decoded IV and Key
+        iv = Buffer.from(this.iv, 'base64');
+        key = Buffer.from(this.key, 'base64');
+      }
+      
+      // Validate IV length (must be 16 bytes for AES-CBC)
+      if (iv.length !== 16) {
+        console.error('❌ Invalid IV length:', iv.length, 'Expected: 16 bytes');
+        throw new Error(`Invalid IV length: ${iv.length}. Must be 16 bytes.`);
+      }
+      
+      // Validate Key length (must be 32 bytes for AES-256-CBC)
+      if (key.length !== 32) {
+        console.error('❌ Invalid Key length:', key.length, 'Expected: 32 bytes');
+        throw new Error(`Invalid Key length: ${key.length}. Must be 32 bytes.`);
+      }
+      
+      const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+      cipher.setAutoPadding(true);
+      
+      let encrypted = cipher.update(plainText, 'utf8', 'hex');
+      encrypted += cipher.final('hex');
+      
+      return encrypted.toUpperCase();
+    } catch (error) {
+      console.error('❌ Production encryption error:', error.message);
+      console.error('IV provided:', this.iv);
+      console.error('Key provided:', this.key);
+      throw error;
+    }
   }
 
   /**
    * Production Decryption - AES/CBC
    */
   _decryptCBC(cipherText) {
-    const iv = Buffer.from(this.iv, 'base64');
-    const key = Buffer.from(this.key, 'base64');
-    
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-    let decrypted = decipher.update(cipherText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
+    try {
+      let iv, key;
+      
+      // Check if IV is Base64 or needs MD5 hashing
+      if (this.md5Iv) {
+        iv = Buffer.from(this.md5Iv, 'hex');
+        key = Buffer.from(this.key, 'base64');
+      } else {
+        iv = Buffer.from(this.iv, 'base64');
+        key = Buffer.from(this.key, 'base64');
+      }
+      
+      // Validate lengths
+      if (iv.length !== 16) {
+        throw new Error(`Invalid IV length: ${iv.length}. Must be 16 bytes.`);
+      }
+      
+      if (key.length !== 32) {
+        throw new Error(`Invalid Key length: ${key.length}. Must be 32 bytes.`);
+      }
+      
+      const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+      decipher.setAutoPadding(true);
+      
+      let decrypted = decipher.update(cipherText, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      return decrypted;
+    } catch (error) {
+      console.error('❌ Production decryption error:', error.message);
+      throw error;
+    }
   }
 
   /**

@@ -9,12 +9,16 @@
   - MID: `1379045`
   - Terminal ID: `getepay.merchant989958@vvsbbank`
   - Key & IV properly configured
+  - **CRITICAL**: IV (`getepay.merchant989958@vvsbbank`) is NOT Base64, automatically handled using MD5 hash
 
 ### 2. **Encryption Protocol** (`src/utils/getepayEncryptProduction.js`)
 - ✅ Created production-grade encryption supporting both:
-  - **AES/CBC** for Production (simple IV + Key)
+  - **AES/CBC** for Production with smart IV handling:
+    - If IV is not valid Base64 → Uses MD5 hash of Terminal ID (32 hex chars = 16 bytes)
+    - If IV is valid Base64 → Uses decoded value
   - **AES/GCM** for UAT/Sandbox (PBKDF2 key derivation)
 - ✅ Automatic environment detection based on `NODE_ENV`
+- ✅ Proper validation and error messages
 
 ### 3. **Payment Controller Updates** (`src/controllers/payment.controller.js`)
 
