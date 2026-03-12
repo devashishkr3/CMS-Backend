@@ -1409,6 +1409,19 @@ exports.generatePaymentLink = async (req, res, next) => {
       terminalId: process.env.GETEPAY_TERMINAL_ID,
       req: encrypted.substring(0, 50) + '...' // Show first 50 chars
     });
+    
+    // 🔴 TEMPORARY DEBUG: Log FULL encrypted request for developer verification
+    console.log(`🔴 [DEBUG] FULL ENCRYPTED REQUEST:`);
+    console.log(encrypted);
+    console.log(`🔴 [DEBUG] Encrypted length: ${encrypted.length} characters`);
+    
+    // Also log the exact JSON that will be sent
+    const requestData = {
+      mid: process.env.GETEPAY_MID,
+      terminalId: process.env.GETEPAY_TERMINAL_ID,
+      req: encrypted
+    };
+    console.log(`🔴 [DEBUG] Complete JSON to send:`, JSON.stringify(requestData, null, 2));
 
     let response;
     try {
