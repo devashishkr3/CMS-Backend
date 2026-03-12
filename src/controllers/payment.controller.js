@@ -1236,7 +1236,7 @@ exports.generatePaymentLink = async (req, res, next) => {
       callbackUrl: callbackUrl,
       currency: "INR",
       paymentMode: "ALL",
-      bankId: "455",
+      // bankId: "455",
       txnType: "single",
       productType: "IPG",
       txnNote: `Payment for ${payment.student.name} - ${payment.receiptNo}`,
