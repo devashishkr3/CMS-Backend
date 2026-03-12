@@ -1604,7 +1604,7 @@ exports.studentGeneratePaymentLink = async (req, res, next) => {
       currency: "INR",
       paymentMode: "ALL",
       txnType: "single",
-      productType: "PAYMENT",
+      productType: "IPG",
       txnNote: `Payment for ${payment.student.name} - ${payment.receiptNo}`,
       udf1: payment.student.phone || "",
       udf2: payment.student.email || "",
