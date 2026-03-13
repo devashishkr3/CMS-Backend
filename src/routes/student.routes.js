@@ -34,7 +34,7 @@ router.post("/verify-student",joiValidator(verifyStudentSchema, "body"), verifyS
 
 router.post(
   "/verify-student-by-university-roll",
-  joiValidator(getStudentByUniversityRollSchema, "body"),
+  // joiValidator(getStudentByUniversityRollSchema, "body"),
   getStudentByUniversityRoll
 );
 
