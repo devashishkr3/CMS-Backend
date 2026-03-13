@@ -79,7 +79,7 @@ router.get('/dcr1-report/date-range',
 router.get('/dcr1-report/today', restrictTo('ADMIN', 'ACCOUNTANT'), getTodayCollection);
 router.get('/dcr1-report/month', restrictTo('ADMIN', 'ACCOUNTANT'), getMonthCollection);
 
-router.get('/:id', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPayment);
+router.get('/:id', getPayment);
 
 router.patch('/:id/status',
   restrictTo('ADMIN', 'ACCOUNTANT'),
