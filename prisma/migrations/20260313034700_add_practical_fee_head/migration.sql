@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "FeeHead" ADD VALUE 'PRACTICAL';
