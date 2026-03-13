@@ -56,6 +56,7 @@ enum FeeHead {
   DEVELOPMENT
   CERTIFICATE
   MISC
+  PRACTICAL
 }
 
 enum AdmissionStatus {

@@ -27,9 +27,9 @@ const createPayment = Joi.object({
     'string.max': 'Reference number should not exceed 100 characters'
   }),
   breakups: Joi.array().items(Joi.object({
-    head: Joi.string().valid('TUITION', 'EXAM', 'INFRASTRUCTURE', 'DEVELOPMENT', 'CERTIFICATE', 'MISC').required().messages({
+    head: Joi.string().valid('TUITION', 'EXAM', 'INFRASTRUCTURE', 'DEVELOPMENT', 'CERTIFICATE', 'MISC', 'PRACTICAL').required().messages({
       'any.required': 'Fee head is required',
-      'any.only': 'Fee head must be one of: TUITION, EXAM, INFRASTRUCTURE, DEVELOPMENT, CERTIFICATE, MISC'
+      'any.only': 'Fee head must be one of: TUITION, PRACTICAL, EXAM, INFRASTRUCTURE, DEVELOPMENT, CERTIFICATE, MISC'
     }),
     amount: Joi.number().positive().required().messages({
       'number.positive': 'Amount must be a positive number',
