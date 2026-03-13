@@ -727,11 +727,10 @@ exports.getDCR1Report = async (req, res, next) => {
     const endOfToday = new Date(startOfToday);
     endOfToday.setDate(endOfToday.getDate() + 1);
     
-    // Get total admission payment collection (all-time SUCCESS payments linked to admissions)
+    // Get total successful payment collection (all-time)
     const totalCollection = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
-        admissionId: { not: null } // Only admission-linked payments
       },
       _sum: {
         totalAmount: true
@@ -739,11 +738,10 @@ exports.getDCR1Report = async (req, res, next) => {
       _count: true
     });
     
-    // Get this month's admission payment collection
+    // Get this month's successful payment collection
     const monthCollection = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
-        admissionId: { not: null },
         createdAt: {
           gte: startOfMonth,
           lt: endOfToday // Up to now
@@ -755,11 +753,10 @@ exports.getDCR1Report = async (req, res, next) => {
       _count: true
     });
     
-    // Get today's admission payment collection
+    // Get today's successful payment collection
     const todayCollection = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
-        admissionId: { not: null },
         createdAt: {
           gte: startOfToday,
           lt: endOfToday
@@ -775,7 +772,6 @@ exports.getDCR1Report = async (req, res, next) => {
     const todayPaymentsDetail = await prisma.payment.findMany({
       where: {
         status: 'SUCCESS',
-        admissionId: { not: null },
         createdAt: {
           gte: startOfToday,
           lt: endOfToday
@@ -787,7 +783,14 @@ exports.getDCR1Report = async (req, res, next) => {
             id: true,
             name: true,
             reg_no: true,
-            email: true
+            email: true,
+            course: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
           }
         },
         admission: {
@@ -814,7 +817,6 @@ exports.getDCR1Report = async (req, res, next) => {
     const monthPaymentsDetail = await prisma.payment.findMany({
       where: {
         status: 'SUCCESS',
-        admissionId: { not: null },
         createdAt: {
           gte: startOfMonth,
           lt: endOfToday
@@ -826,7 +828,14 @@ exports.getDCR1Report = async (req, res, next) => {
             id: true,
             name: true,
             reg_no: true,
-            email: true
+            email: true,
+            course: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
           }
         },
         admission: {
@@ -944,7 +953,6 @@ exports.getDCR1ReportWithDateRange = async (req, res, next) => {
     const rangeCollection = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
-        admissionId: { not: null },
         createdAt: {
           gte: start,
           lte: end
@@ -960,7 +968,6 @@ exports.getDCR1ReportWithDateRange = async (req, res, next) => {
     const paymentsDetail = await prisma.payment.findMany({
       where: {
         status: 'SUCCESS',
-        admissionId: { not: null },
         createdAt: {
           gte: start,
           lte: end
@@ -1086,7 +1093,6 @@ exports.getTodayCollection = async (req, res, next) => {
     const todayCollection = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
-        admissionId: { not: null },
         createdAt: {
           gte: startOfToday,
           lt: endOfToday
@@ -1127,7 +1133,6 @@ exports.getMonthCollection = async (req, res, next) => {
     const monthCollection = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
-        admissionId: { not: null },
         createdAt: {
           gte: startOfMonth,
           lte: endOfMonth

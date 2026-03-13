@@ -52,7 +52,7 @@ router.get('/public/:id/status', getPayment);
 router.get('/public/:id/invoice', downloadPublicInvoice);
 
 // ========== AUTHENTICATED ROUTES ==========
-// router.use(protect);
+router.use(protect);
 
 // Create payment
 router.post('/', joiValidator(createPayment, "body"), createPaymentController);
