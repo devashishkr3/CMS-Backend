@@ -64,22 +64,28 @@ router.post('/:paymentId/generate-link', generatePaymentLink);
 router.post('/:paymentId/student-generate-link', studentGeneratePaymentLink);
 
 // Admin routes
-router.get('/', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getAllPayments);
-router.get('/stats', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPaymentStats);
-router.get('/dcr1-report', restrictTo('ADMIN', 'ACCOUNTANT'), getDCR1Report);
+router.get('/',protect, restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getAllPayments);
+router.get('/stats',protect, restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPaymentStats);
+router.get('/dcr1-report',protect, restrictTo('ADMIN', 'ACCOUNTANT'), getDCR1Report);
 
 // DCR1 Report with date range filter and CSV export
 router.get('/dcr1-report/date-range', 
+  protect,
   restrictTo('ADMIN', 'ACCOUNTANT'),
   joiValidator(dcr1DateRangeValidator, "query"),
   getDCR1ReportWithDateRange
 );
 
+
+// get payment
+router.get('/:id', getPayment);
+
+
+router.use(protect);
+
 // Quick collection endpoints
 router.get('/dcr1-report/today', restrictTo('ADMIN', 'ACCOUNTANT'), getTodayCollection);
 router.get('/dcr1-report/month', restrictTo('ADMIN', 'ACCOUNTANT'), getMonthCollection);
-
-router.get('/:id', getPayment);
 
 router.patch('/:id/status',
   restrictTo('ADMIN', 'ACCOUNTANT'),
