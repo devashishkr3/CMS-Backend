@@ -260,6 +260,34 @@ exports.createPayment = async (req, res, next) => {
       if (admission.studentId !== studentId) {
         return next(new AppError('Admission does not belong to the specified student', 400));
       }
+
+      const existingSuccessfulPayment = await prisma.payment.findFirst({
+        where: {
+          studentId,
+          admissionId,
+          status: 'SUCCESS'
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        select: {
+          id: true,
+          status: true,
+          receiptNo: true,
+          totalAmount: true,
+          createdAt: true
+        }
+      });
+
+      if (existingSuccessfulPayment) {
+        return res.status(409).json({
+          status: 'error',
+          message: 'Admission fee has already been paid for this admission.',
+          data: {
+            payment: existingSuccessfulPayment
+          }
+        });
+      }
     }
 
     // Check if transaction ID already exists
