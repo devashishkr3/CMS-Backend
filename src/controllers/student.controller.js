@@ -1336,6 +1336,20 @@ exports.verifyStudentForAdmission = async (req, res, next) => {
           }
         },
         admissions: {
+          include: {
+            payments: {
+              select: {
+                id: true,
+                status: true,
+                receiptNo: true,
+                totalAmount: true,
+                createdAt: true
+              },
+              orderBy: {
+                createdAt: "desc"
+              }
+            }
+          },
           orderBy: {
             createdAt: "desc"
           },
@@ -1442,6 +1456,20 @@ exports.getStudentByUniversityRoll = async (req, res, next) => {
         },
 
         admissions: {
+          include: {
+            payments: {
+              select: {
+                id: true,
+                status: true,
+                receiptNo: true,
+                totalAmount: true,
+                createdAt: true
+              },
+              orderBy: {
+                createdAt: "desc"
+              }
+            }
+          },
           orderBy: {
             createdAt: "desc"
           },
@@ -1456,6 +1484,12 @@ exports.getStudentByUniversityRoll = async (req, res, next) => {
        4. RESPONSE
     ============================ */
 
+    const lastAdmission = profile.admissions[0] || null;
+    const successfulPayment = lastAdmission?.payments?.find(
+      payment => payment.status === "SUCCESS"
+    ) || null;
+    const latestPayment = lastAdmission?.payments?.[0] || null;
+
     res.status(200).json({
       status: "success",
       message: "Student fetched successfully",
@@ -1463,8 +1497,8 @@ exports.getStudentByUniversityRoll = async (req, res, next) => {
 
         id: profile.id,
         name: profile.name,
-        father_name: profile.father_name,
-        mother_name: profile.mother_name,
+        fatherName: profile.fatherName,
+        motherName: profile.motherName,
 
         reg_no: profile.reg_no,
         uan_no: profile.uan_no,
@@ -1481,7 +1515,13 @@ exports.getStudentByUniversityRoll = async (req, res, next) => {
           profile.semesters[0]?.semester?.number || null,
 
         lastAdmission:
-          profile.admissions[0] || null
+          lastAdmission
+            ? {
+                ...lastAdmission,
+                paymentStatus: successfulPayment ? "SUCCESS" : (latestPayment?.status || "PENDING"),
+                latestPayment
+              }
+            : null
 
       }
     });
