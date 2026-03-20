@@ -40,7 +40,7 @@ app.use(morgan("dev"));
 
 // CORS
 // CORS — support comma-separated FRONTEND_URL values (e.g. http://localhost:5173,http://localhost:5173)
-const rawFrontendUrls = process.env.FRONTEND_URL || "*";
+const rawFrontendUrls = process.env.FRONTEND_URL;
 const allowedOrigins = rawFrontendUrls.split(",").map((s) => s.trim()).filter(Boolean);
 const allowAll = allowedOrigins.includes("*");
 
