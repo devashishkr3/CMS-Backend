@@ -38,52 +38,111 @@ app.use(express.urlencoded({ extended: true }));
 app.use(helmet());
 app.use(morgan("dev"));
 
+// CORS
+// CORS — support comma-separated FRONTEND_URL values (e.g. http://localhost:5173,http://localhost:5173)
+const rawFrontendUrls = process.env.FRONTEND_URL || "*";
+const allowedOrigins = rawFrontendUrls.split(",").map((s) => s.trim()).filter(Boolean);
+const allowAll = allowedOrigins.includes("*");
 
-const rawFrontendUrls = process.env.FRONTEND_URL;
-
-if (!rawFrontendUrls) {
-  throw new Error("FRONTEND_URL is not defined in env");
-}
-
-const allowedOrigins = rawFrontendUrls
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // allow server-to-server (no origin)
-    if (!origin) return callback(null, true);
-
-    // allow whitelisted domains
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    // allow localhost (DEV only)
-    if (process.env.NODE_ENV !== "production") {
-      try {
-        const parsed = new URL(origin);
-        if (
-          parsed.hostname === "localhost" ||
-          parsed.hostname === "127.0.0.1"
-        ) {
-          return callback(null, true);
-        }
-      } catch (err) {}
-    }
-
-    logger.warn(`CORS BLOCKED: ${origin}`);
-    return callback(new Error("Not allowed by CORS"));
-  },
-
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-
-  credentials: true, // only if using cookies/auth
+// Skip CORS for payment webhook endpoints (callback, return) - these are server-to-server calls
+const skipCorsForWebhooks = (req) => {
+  return req.path.includes("/api/v1/payments/callback") || 
+         req.path.includes("/api/v1/payments/return");
 };
 
-app.use(cors(corsOptions));
+app.use(
+  cors((req, callback) => {
+    // Return/callback endpoints must accept cross-origin browser posts from gateway.
+    if (skipCorsForWebhooks(req)) {
+      return callback(null, {
+        origin: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+        credentials: false,
+      });
+    }
+
+    return callback(null, {
+      origin: allowAll
+        ? "*"
+        : function (origin, originCb) {
+            // allow server-to-server or same-origin requests with no origin
+            if (!origin) return originCb(null, true);
+
+            // direct match from env list
+            if (allowedOrigins.indexOf(origin) !== -1) return originCb(null, true);
+
+            // allow any localhost / 127.0.0.1 / IPv6 loopback origins (any port)
+            try {
+              const parsed = new URL(origin);
+              const hostname = parsed.hostname;
+              if (
+                hostname === "localhost" ||
+                hostname === "127.0.0.1" ||
+                hostname === "::1"
+              ) {
+                return originCb(null, true);
+              }
+            } catch (e) {
+              // if origin isn't a valid URL, fall through to deny
+            }
+
+            return originCb(new Error("CORS policy: This origin is not allowed."), false);
+          },
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+      // credentials cannot be true when origin is "*"
+      credentials: !allowAll,
+    });
+  })
+);
+
+
+// const rawFrontendUrls = process.env.FRONTEND_URL;
+
+// if (!rawFrontendUrls) {
+//   throw new Error("FRONTEND_URL is not defined in env");
+// }
+
+// const allowedOrigins = rawFrontendUrls
+//   .split(",")
+//   .map((s) => s.trim())
+//   .filter(Boolean);
+
+// const corsOptions = {
+//   origin: function (origin, callback) {
+//     // allow server-to-server (no origin)
+//     if (!origin) return callback(null, true);
+
+//     // allow whitelisted domains
+//     if (allowedOrigins.includes(origin)) {
+//       return callback(null, true);
+//     }
+
+//     // allow localhost (DEV only)
+//     if (process.env.NODE_ENV !== "production") {
+//       try {
+//         const parsed = new URL(origin);
+//         if (
+//           parsed.hostname === "localhost" ||
+//           parsed.hostname === "127.0.0.1"
+//         ) {
+//           return callback(null, true);
+//         }
+//       } catch (err) {}
+//     }
+
+//     logger.warn(`CORS BLOCKED: ${origin}`);
+//     return callback(new Error("Not allowed by CORS"));
+//   },
+
+//   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+//   allowedHeaders: ["Content-Type", "Authorization"],
+
+//   credentials: true, // only if using cookies/auth
+// };
+
+// app.use(cors(corsOptions));
 
 // CORS
 // CORS — support comma-separated FRONTEND_URL values (e.g. http://localhost:5173,http://localhost:5173)
