@@ -9,8 +9,8 @@ const {
 } = require('../validation/admission.validation');
 
 const ADMISSION_FEE_RULES = {
-  5: {
-    baseFee: 3450,
+  4: {
+    baseFee: 3250,
     practicalFee: 600,
   },
 };

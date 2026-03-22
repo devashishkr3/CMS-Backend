@@ -7,7 +7,7 @@ const joiValidator = require("../middlewares/joiValidator");
 const upload = require('../middlewares/fileUpload'); // Add file upload middleware
 
 // Import validation schemas
-const { createStudent, updateStudent, assignSemester,getStudentByUniversityRollSchema, verifyStudentSchema, bulkCreateStudents } = require("../validation/student.validation");
+const { createStudent, updateStudent, assignSemester, getStudentByClassRollSchema, verifyStudentSchema, bulkCreateStudents } = require("../validation/student.validation");
 
 // Import controllers
 const {
@@ -19,7 +19,7 @@ const {
   assignSemester: assignSemesterController,
   updateStudentSemesterStatus,
   verifyStudentForAdmission,
-  getStudentByUniversityRoll,
+  getStudentByClassRoll,
   clearAllStudentPaymentStatuses,
   bulkCreateStudents: bulkCreateStudentsController,
   bulkUploadStudentsFromExcel,
@@ -33,9 +33,9 @@ const {
 router.post("/verify-student",joiValidator(verifyStudentSchema, "body"), verifyStudentForAdmission);
 
 router.post(
-  "/verify-student-by-university-roll",
-  // joiValidator(getStudentByUniversityRollSchema, "body"),
-  getStudentByUniversityRoll
+  "/verify-student-by-class-roll",
+  joiValidator(getStudentByClassRollSchema, "body"),
+  getStudentByClassRoll
 );
 
 // All routes below this middleware require authentication
