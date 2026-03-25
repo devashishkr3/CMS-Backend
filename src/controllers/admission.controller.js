@@ -12,6 +12,7 @@ const ADMISSION_FEE_RULES = {
   5: {
     baseFee: 3450,
     practicalFee: 600,
+    lateFee: 500,
   },
 };
 
@@ -67,7 +68,11 @@ exports.getAdmissionFeePreview = async (req, res, next) => {
     const practical = parseBooleanQueryParam(practicalValue);
     const baseFee = feeRule.baseFee;
     const practicalFee = practical ? feeRule.practicalFee : 0;
-    const totalFee = baseFee + practicalFee;
+    const lateFee = feeRule.lateFee || 0; // TODO: Implement late fee logic based on current date and semester start date
+    const totalFee = baseFee + practicalFee + lateFee;
+
+    console.log(totalFee);
+    
 
     res.status(200).json({
       status: 'success',
@@ -78,6 +83,7 @@ exports.getAdmissionFeePreview = async (req, res, next) => {
         feeBreakdown: {
           admissionFee: baseFee,
           practicalFee,
+          lateFee,
           totalFee,
         },
         message: practical
