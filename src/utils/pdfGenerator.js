@@ -62,7 +62,7 @@ exports.generateReceiptPDF = async (payment) => {
   doc
     .fontSize(13)
     .font("Helvetica-Bold")
-    .text("SEMESTER VI PAYMENT RECEIPT", {
+    .text("SEMESTER IV PAYMENT RECEIPT", {
       align: "center",
       underline: true
     });
