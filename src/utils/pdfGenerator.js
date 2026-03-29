@@ -4,60 +4,141 @@ const path = require("path");
 
 exports.generateReceiptPDF = async (payment) => {
   const filePath = path.join("/tmp", `receipt-${payment.receiptNo}.pdf`);
-  const doc = new PDFDocument({ size: "A4", margin: 50 });
+
+  const doc = new PDFDocument({
+    size: "A4",
+    margin: 50
+  });
+
   const writeStream = fs.createWriteStream(filePath);
   doc.pipe(writeStream);
 
-  doc.fontSize(18).text("SEMESTER PAYMENT RECEIPT", { align: "center" });
-  doc.moveDown();
+  // =========================
+  // LOGO PATH
+  // =========================
+  const logoPath = path.join(__dirname, "/SSDM_logo.png"); 
+  // apna actual logo path yaha dena
 
-  doc.fontSize(12);
-  doc.text(`Receipt No: ${payment.receiptNo}`);
-  doc.text(`Student Name: ${payment.student.name}`);
-  doc.text(`Registration No: ${payment.student.reg_no}`);
-  doc.text(`University Roll No: ${payment.student.university_roll || 'N/A'}`);
-  doc.text(`Amount Paid: ₹${payment.totalAmount}`);
-  doc.text(`Payment Status: ${payment.status}`);
-  doc.text(`Date: ${new Date().toLocaleString()}`);
+  // =========================
+  // HEADER SECTION
+  // =========================
 
-  doc.moveDown();
-  doc.text("Fee Breakup:", { underline: true });
+  if (fs.existsSync(logoPath)) {
+    doc.image(logoPath, 60, 55, { width: 70 });
+  }
 
-  payment.breakups.forEach(b => {
-    doc.text(`${b.head}: ₹${b.amount}`);
-  });
+  doc
+    .fontSize(18)
+    .font("Helvetica-Bold")
+    .text("SANT SANDHYADAS MAHILA COLLEGE", 90, 60, {
+      align: "center"
+    });
 
-  doc.moveDown(4);
-  doc.text("Authorized Signature", { align: "right" });
+  doc
+    .fontSize(13)
+    .font("Helvetica")
+    .text("Gulabbagh, Barh, Patna", {
+      align: "center"
+    });
 
-  doc.end();
-  await new Promise((resolve, reject) => {
-    writeStream.on("finish", resolve);
-    writeStream.on("error", reject);
-    doc.on("error", reject);
-  });
+  doc
+    .fontSize(13)
+    .text("Affiliated to PPU, Patna", {
+      align: "center"
+    });
 
-  return filePath;
-};
+  doc
+    .fontSize(13)
+    .text("College Code: 435", {
+      align: "center"
+    });
 
-exports.generateCertificatePDF = async (student, admission) => {
-  const filePath = `/tmp/certificate-${student.university_roll || student.reg_no}.pdf`;
-  const doc = new PDFDocument({ size: "A4", margin: 50 });
-  const writeStream = fs.createWriteStream(filePath);
-  doc.pipe(writeStream);
-
-  doc.fontSize(20).text("ADMISSION CERTIFICATE", { align: "center" });
   doc.moveDown(2);
 
-  doc.fontSize(14).text(
-    `This is to certify that ${student.name} has successfully taken admission and completed payment formalities.`,
-    { align: "center" }
-  );
+  // =========================
+  // TITLE
+  // =========================
 
-  doc.moveDown(5);
-  doc.text("College Authority", { align: "right" });
+  doc
+    .fontSize(13)
+    .font("Helvetica-Bold")
+    .text("SEMESTER VI PAYMENT RECEIPT", {
+      align: "center",
+      underline: true
+    });
+
+  doc.moveDown(2);
+
+  // =========================
+  // RECEIPT DETAILS
+  // =========================
+
+  doc.font("Helvetica").fontSize(12);
+
+  doc.text(`Receipt No:  ${payment.receiptNo}`);
+  doc.moveDown();
+
+  doc.text(`Student Name:  ${payment.student.name}`);
+  doc.moveDown();
+
+  doc.text(`University Roll No:  ${payment.student.university_roll || "N/A"}`);
+  doc.moveDown();
+
+  doc.text(`Session :  2023-2027`)
+  doc.moveDown();
+
+  // FIXED Amount Issue
+  doc.text(`Amount Paid:  Rs. ${payment.totalAmount}`);
+  doc.moveDown();
+
+  doc.text(`Payment Status:  ${payment.status}`);
+  doc.moveDown();
+
+  doc.text(`Date:  ${new Date().toLocaleString()}`);
+
+  doc.moveDown();
+  doc.moveDown();
+  doc.moveDown();
+  doc.moveDown();
+
+  // =========================
+  // FEE BREAKUP
+  // =========================
+
+  // doc
+  //   .font("Helvetica-Bold")
+  //   .text("Fee Breakup:", {
+  //     underline: true
+  //   });
+
+  // doc.font("Helvetica");
+
+  // payment.breakups.forEach((b) => {
+  //   doc.text(`${b.head}: Rs. ${b.amount}`);
+  // });
+
+  doc.moveDown(4);
+
+  // =========================
+  // SIGNATURE
+  // =========================
+
+  doc.text("Authorized Signature", {
+    align: "right"
+  });
+
+  // =========================
+  // FOOTER LINE
+  // =========================
+
+  doc.moveDown();
+  doc
+    .moveTo(50, doc.y)
+    .lineTo(550, doc.y)
+    .stroke();
 
   doc.end();
+
   await new Promise((resolve, reject) => {
     writeStream.on("finish", resolve);
     writeStream.on("error", reject);

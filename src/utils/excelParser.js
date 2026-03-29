@@ -1,4 +1,5 @@
 const xlsx = require('xlsx');
+const { sanitizeImportedText, sanitizeUniversityRoll } = require('./studentSanitizer');
 
 /**
  * Parse Excel file and extract student data
@@ -25,9 +26,9 @@ exports.parseExcelStudents = (fileBuffer) => {
       }
       
       // Clean and normalize data
-      const name = row['name']?.toString().trim() || '';
-      const fatherName = row['fatherName']?.toString().trim() || '';
-      const university_roll = row['university_roll']?.toString().trim() || '';
+      const name = sanitizeImportedText(row['name']) || '';
+      const fatherName = sanitizeImportedText(row['fatherName']) || '';
+      const university_roll = sanitizeUniversityRoll(row['university_roll']) || '';
       const class_roll = row['class_roll']?.toString().trim() || '';
       
       // Validate required fields

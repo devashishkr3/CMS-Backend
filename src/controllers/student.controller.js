@@ -4,6 +4,14 @@ const Joi = require('joi');
 const { logAudit } = require('../utils/auditLogger');
 const { createStudent, updateStudent, assignSemester, verifyStudentSchema, bulkCreateStudents } = require('../validation/student.validation');
 const { parseExcelStudents, validateParsedStudents } = require('../utils/excelParser');
+const { sanitizeImportedText, sanitizeUniversityRoll } = require('../utils/studentSanitizer');
+
+const sanitizeStudentPayload = (student) => ({
+  ...student,
+  name: sanitizeImportedText(student.name),
+  fatherName: sanitizeImportedText(student.fatherName),
+  university_roll: sanitizeUniversityRoll(student.university_roll)
+});
 
 /**
  * Create New students and Add old Students also
@@ -16,12 +24,15 @@ exports.createStudent = async (req, res, next) => {
       return next(new AppError(error.details[0].message, 400));
     }
 
+    const sanitizedUniversityRoll = sanitizeUniversityRoll(value.university_roll);
+    const sanitizedName = sanitizeImportedText(value.name);
+    const sanitizedFatherName = sanitizeImportedText(value.fatherName);
+
     const {
       // STUDENT
       reg_no,
       uan_no,
       class_roll,
-      university_roll,
       name,
       email,
       phone,
@@ -64,8 +75,8 @@ exports.createStudent = async (req, res, next) => {
     }
 
     // DUPLICATE UNIVERSITY ROLL CHECK (if university_roll provided)
-    if (university_roll) {
-      const universityRollExists = await prisma.student.findUnique({ where: { university_roll } });
+    if (sanitizedUniversityRoll) {
+      const universityRollExists = await prisma.student.findUnique({ where: { university_roll: sanitizedUniversityRoll } });
       if (universityRollExists) {
         return next(new AppError('Student with this University Roll already exists', 400));
       }
@@ -131,12 +142,12 @@ exports.createStudent = async (req, res, next) => {
           reg_no,
           uan_no,
           class_roll: finalClassRoll,
-          university_roll,
-          name,
+          university_roll: sanitizedUniversityRoll || null,
+          name: sanitizedName || name,
           email,
           phone,
           dob: dob ? new Date(dob) : undefined,
-          fatherName,
+          fatherName: sanitizedFatherName || fatherName,
           gender,
           category,
           address,
@@ -201,7 +212,7 @@ exports.createStudent = async (req, res, next) => {
           reg_no,
           uan_no,
           class_roll: finalClassRoll,
-          university_roll,
+          university_roll: sanitizedUniversityRoll || null,
           courseId,
           departmentId,
           semesterId,
@@ -237,8 +248,12 @@ exports.bulkCreateStudents = async (req, res, next) => {
       return next(new AppError(error.details[0].message, 400));
     }
 
+    const sanitizedStudents = value.students.map(student => ({
+      ...student,
+      university_roll: sanitizeUniversityRoll(student.university_roll)
+    }));
+
     const {
-      students,
       courseId,
       sessionId,
       semesterId,
@@ -271,14 +286,14 @@ exports.bulkCreateStudents = async (req, res, next) => {
     const existingRolls = await prisma.student.findMany({
       where: {
         university_roll: {
-          in: students.map(s => s.university_roll)
+          in: sanitizedStudents.map(s => s.university_roll)
         }
       },
       select: { university_roll: true }
     });
 
     const existingRollSet = new Set(existingRolls.map(r => r.university_roll));
-    const duplicates = students.filter(s => existingRollSet.has(s.university_roll));
+    const duplicates = sanitizedStudents.filter(s => existingRollSet.has(s.university_roll));
 
     if (duplicates.length > 0) {
       return next(new AppError(
@@ -289,7 +304,7 @@ exports.bulkCreateStudents = async (req, res, next) => {
 
     // Check for duplicate university rolls within the batch
     const rollCounts = {};
-    students.forEach(s => {
+    sanitizedStudents.forEach(s => {
       rollCounts[s.university_roll] = (rollCounts[s.university_roll] || 0) + 1;
     });
 
@@ -309,8 +324,8 @@ exports.bulkCreateStudents = async (req, res, next) => {
     const createdStudents = [];
     const errors = [];
 
-    for (let i = 0; i < students.length; i += BATCH_SIZE) {
-      const batch = students.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < sanitizedStudents.length; i += BATCH_SIZE) {
+      const batch = sanitizedStudents.slice(i, i + BATCH_SIZE);
 
       const batchResults = await Promise.all(
         batch.map(async (studentData, index) => {
@@ -407,7 +422,7 @@ exports.bulkCreateStudents = async (req, res, next) => {
       entity: 'Student',
       entityId: 'bulk',
       payload: {
-        totalRecords: students.length,
+        totalRecords: sanitizedStudents.length,
         successCount: createdStudents.length,
         failureCount: errors.length,
         courseId,
@@ -420,9 +435,9 @@ exports.bulkCreateStudents = async (req, res, next) => {
 
     res.status(201).json({
       status: 'success',
-      message: `Successfully created ${createdStudents.length} out of ${students.length} students`,
+      message: `Successfully created ${createdStudents.length} out of ${sanitizedStudents.length} students`,
       data: {
-        totalRecords: students.length,
+        totalRecords: sanitizedStudents.length,
         successCount: createdStudents.length,
         failureCount: errors.length,
         students: createdStudents,
@@ -482,9 +497,9 @@ exports.bulkUploadStudentsFromExcel = async (req, res, next) => {
 
     // Prepare students array for bulk creation
     const students = validationResult.validStudents.map(student => ({
-      name: student.name,
-      fatherName: student.fatherName,
-      university_roll: student.university_roll,
+      name: sanitizeImportedText(student.name),
+      fatherName: sanitizeImportedText(student.fatherName),
+      university_roll: sanitizeUniversityRoll(student.university_roll),
       class_roll: student.class_roll,
       majorSubject: student.majorSubject,
       minorSubject: student.minorSubject
@@ -516,7 +531,10 @@ exports.bulkUploadStudentsFromExcel = async (req, res, next) => {
  */
 exports.bulkUpdateStudents = async (req, res, next) => {
   try {
-    const { students } = req.body;
+    const students = req.body.students?.map(student => ({
+      ...student,
+      university_roll: sanitizeUniversityRoll(student.university_roll)
+    }));
 
     if (!Array.isArray(students) || students.length === 0) {
       return next(new AppError('Students array is required and must not be empty', 400));
@@ -608,6 +626,173 @@ exports.bulkUpdateStudents = async (req, res, next) => {
 };
 
 /**
+ * Cleanup imported student values with leading bullet/dot-like symbols
+ * Access: ADMIN, HOD
+ */
+exports.cleanupUniversityRolls = async (req, res, next) => {
+  try {
+    const studentsToFix = await prisma.student.findMany({
+      where: {
+        isDeleted: false
+      },
+      select: {
+        id: true,
+        name: true,
+        university_roll: true,
+        fatherName: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    const sanitizedStudents = studentsToFix.map(student => ({
+      ...student,
+      cleanedUniversityRoll: sanitizeUniversityRoll(student.university_roll),
+      cleanedName: sanitizeImportedText(student.name),
+      cleanedFatherName: sanitizeImportedText(student.fatherName)
+    }));
+
+    const candidates = sanitizedStudents.filter(student => (
+      student.university_roll !== student.cleanedUniversityRoll ||
+      student.name !== student.cleanedName ||
+      student.fatherName !== student.cleanedFatherName
+    ));
+
+    if (candidates.length === 0) {
+      return res.status(200).json({
+        status: 'success',
+        message: 'No students found with invalid imported prefixes',
+        data: {
+          matchedCount: 0,
+          updatedCount: 0,
+          skippedCount: 0,
+          updatedStudents: [],
+          skippedStudents: []
+        }
+      });
+    }
+
+    const duplicateCounts = candidates.reduce((acc, student) => {
+      acc[student.cleanedUniversityRoll] = (acc[student.cleanedUniversityRoll] || 0) + 1;
+      return acc;
+    }, {});
+
+    const duplicatedCleanedRolls = new Set(
+      Object.entries(duplicateCounts)
+        .filter(([roll, count]) => roll && count > 1)
+        .map(([roll]) => roll)
+    );
+
+    const conflictingExistingStudents = await prisma.student.findMany({
+      where: {
+        isDeleted: false,
+        university_roll: {
+          in: candidates.map(student => student.cleanedUniversityRoll).filter(Boolean)
+        },
+        NOT: {
+          id: {
+            in: candidates.map(student => student.id)
+          }
+        }
+      },
+      select: {
+        id: true,
+        university_roll: true
+      }
+    });
+
+    const conflictingRolls = new Set(
+      conflictingExistingStudents
+        .map(student => student.university_roll)
+        .filter(Boolean)
+    );
+
+    const updatableStudents = candidates.filter(student => (
+      (student.university_roll === student.cleanedUniversityRoll) ||
+      (
+        student.cleanedUniversityRoll &&
+        !duplicatedCleanedRolls.has(student.cleanedUniversityRoll) &&
+        !conflictingRolls.has(student.cleanedUniversityRoll)
+      )
+    ));
+
+    const skippedStudents = candidates
+      .filter(student => !updatableStudents.some(updatableStudent => updatableStudent.id === student.id))
+      .map(student => ({
+        id: student.id,
+        name: student.name,
+        currentUniversityRoll: student.university_roll,
+        cleanedUniversityRoll: student.cleanedUniversityRoll || null,
+        currentFatherName: student.fatherName,
+        cleanedFatherName: student.cleanedFatherName || null,
+        cleanedName: student.cleanedName || null,
+        reason: student.university_roll !== student.cleanedUniversityRoll && !student.cleanedUniversityRoll
+          ? 'Sanitized university roll is empty'
+          : student.university_roll !== student.cleanedUniversityRoll && duplicatedCleanedRolls.has(student.cleanedUniversityRoll)
+            ? 'Another dotted record sanitizes to the same university roll'
+            : 'A different student already uses the sanitized university roll'
+      }));
+
+    const updatedStudents = [];
+
+    if (updatableStudents.length > 0) {
+      await prisma.$transaction(
+        updatableStudents.map(student =>
+          prisma.student.update({
+            where: { id: student.id },
+            data: {
+              university_roll: student.cleanedUniversityRoll,
+              name: student.cleanedName,
+              fatherName: student.cleanedFatherName
+            }
+          })
+        )
+      );
+
+      updatedStudents.push(
+        ...updatableStudents.map(student => ({
+          id: student.id,
+          name: student.name,
+          updatedName: student.cleanedName,
+          previousFatherName: student.fatherName,
+          updatedFatherName: student.cleanedFatherName,
+          previousUniversityRoll: student.university_roll,
+          updatedUniversityRoll: student.cleanedUniversityRoll
+        }))
+      );
+    }
+
+    await logAudit({
+      userId: req.user.id,
+      action: 'CLEANUP_UNIVERSITY_ROLLS',
+      entity: 'Student',
+      entityId: 'bulk',
+      payload: {
+        matchedCount: candidates.length,
+        updatedCount: updatedStudents.length,
+        skippedCount: skippedStudents.length
+      },
+      req
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: `Cleaned imported prefixes for ${updatedStudents.length} students`,
+      data: {
+        matchedCount: candidates.length,
+        updatedCount: updatedStudents.length,
+        skippedCount: skippedStudents.length,
+        updatedStudents,
+        skippedStudents
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
  * Get all students with filtering + pagination
  * Access: ADMIN, HOD
  */
@@ -681,6 +866,7 @@ exports.getAllStudents = async (req, res, next) => {
       }
     });
 
+    const sanitizedStudents = students.map(sanitizeStudentPayload);
     const totalPages = Math.ceil(totalRecords / pageSize);
 
     res.status(200).json({
@@ -695,7 +881,7 @@ exports.getAllStudents = async (req, res, next) => {
         hasPrevPage: pageNumber > 1
       },
       data: {
-        students
+        students: sanitizedStudents
       }
     });
   } catch (error) {
@@ -802,10 +988,12 @@ exports.getStudent = async (req, res, next) => {
       return next(new AppError('Student not found', 404));
     }
 
+    const sanitizedStudent = sanitizeStudentPayload(student);
+
     res.status(200).json({
       status: 'success',
       data: {
-        student
+        student: sanitizedStudent
       }
     });
   } catch (error) {
@@ -827,6 +1015,10 @@ exports.updateStudent = async (req, res, next) => {
       return next(new AppError(error.details.map(d => d.message).join(', '), 400));
     }
 
+    const sanitizedUniversityRoll = sanitizeUniversityRoll(value.university_roll);
+    const sanitizedName = sanitizeImportedText(value.name);
+    const sanitizedFatherName = sanitizeImportedText(value.fatherName);
+
     // Check if student exists
     const student = await prisma.student.findUnique({
       where: { id }
@@ -836,14 +1028,28 @@ exports.updateStudent = async (req, res, next) => {
       return next(new AppError('Student not found', 404));
     }
 
+    if (sanitizedUniversityRoll && sanitizedUniversityRoll !== student.university_roll) {
+      const existingStudent = await prisma.student.findUnique({
+        where: {
+          university_roll: sanitizedUniversityRoll
+        }
+      });
+
+      if (existingStudent) {
+        return next(new AppError('Student with this University Roll already exists', 400));
+      }
+    }
+
     // Update student
     const updatedStudent = await prisma.student.update({
       where: { id },
       data: {
         ...value,
+        name: sanitizedName || value.name,
+        fatherName: sanitizedFatherName || value.fatherName,
         dob: value.dob ? new Date(value.dob) : undefined,
         uan_no: undefined, // Prevent updating UAN as it's unique and should not change
-        university_roll: value.university_roll || undefined // Allow updating university_roll
+        university_roll: sanitizedUniversityRoll || undefined // Allow updating university_roll
       },
       include: {
         course: {
@@ -1336,6 +1542,20 @@ exports.verifyStudentForAdmission = async (req, res, next) => {
           }
         },
         admissions: {
+          include: {
+            payments: {
+              select: {
+                id: true,
+                status: true,
+                receiptNo: true,
+                totalAmount: true,
+                createdAt: true
+              },
+              orderBy: {
+                createdAt: "desc"
+              }
+            }
+          },
           orderBy: {
             createdAt: "desc"
           },
@@ -1442,6 +1662,20 @@ exports.getStudentByClassRoll = async (req, res, next) => {
         },
 
         admissions: {
+          include: {
+            payments: {
+              select: {
+                id: true,
+                status: true,
+                receiptNo: true,
+                totalAmount: true,
+                createdAt: true
+              },
+              orderBy: {
+                createdAt: "desc"
+              }
+            }
+          },
           orderBy: {
             createdAt: "desc"
           },
@@ -1456,6 +1690,12 @@ exports.getStudentByClassRoll = async (req, res, next) => {
        4. RESPONSE
     ============================ */
 
+    const lastAdmission = profile.admissions[0] || null;
+    const successfulPayment = lastAdmission?.payments?.find(
+      payment => payment.status === "SUCCESS"
+    ) || null;
+    const latestPayment = lastAdmission?.payments?.[0] || null;
+
     res.status(200).json({
       status: "success",
       message: "Student fetched successfully",
@@ -1465,6 +1705,7 @@ exports.getStudentByClassRoll = async (req, res, next) => {
         name: profile.name,
         fatherName: profile.fatherName,
         father_name: profile.fatherName,
+        motherName: profile.motherName,
 
         reg_no: profile.reg_no,
         uan_no: profile.uan_no,
@@ -1481,7 +1722,13 @@ exports.getStudentByClassRoll = async (req, res, next) => {
           profile.semesters[0]?.semester?.number || null,
 
         lastAdmission:
-          profile.admissions[0] || null
+          lastAdmission
+            ? {
+                ...lastAdmission,
+                paymentStatus: successfulPayment ? "SUCCESS" : (latestPayment?.status || "PENDING"),
+                latestPayment
+              }
+            : null
 
       }
     });
