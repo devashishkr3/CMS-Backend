@@ -84,7 +84,7 @@ exports.generateReceiptPDF = async (payment) => {
   doc.text(`University Roll No:  ${payment.student.university_roll || "N/A"}`);
   doc.moveDown();
 
-  doc.text(`College Roll No:  ${payment.student.college_roll || "N/A"}`);
+  doc.text(`College Roll No:  ${payment.student.class_roll || "N/A"}`);
   doc.moveDown();
 
   doc.text(`Session :  2024-2028`);
