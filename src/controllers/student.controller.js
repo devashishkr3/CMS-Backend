@@ -1598,26 +1598,26 @@ exports.verifyStudentForAdmission = async (req, res, next) => {
 
 
 /**
- * Get Student Details By University Roll
+ * Get Student Details By Class Roll
  * Public API
  */
 
-exports.getStudentByUniversityRoll = async (req, res, next) => {
+exports.getStudentByClassRoll = async (req, res, next) => {
   try {
 
     /* ============================
        1. GET INPUT
     ============================ */
 
-    const { university_roll } = req.body;
+    const { class_roll } = req.body;
 
 
     /* ============================
        2. FIND STUDENT
     ============================ */
 
-    const student = await prisma.student.findUnique({
-      where: { university_roll }
+    const student = await prisma.student.findFirst({
+      where: { class_roll }
     });
 
     if (!student) {
@@ -1704,6 +1704,7 @@ exports.getStudentByUniversityRoll = async (req, res, next) => {
         id: profile.id,
         name: profile.name,
         fatherName: profile.fatherName,
+        father_name: profile.fatherName,
         motherName: profile.motherName,
 
         reg_no: profile.reg_no,
