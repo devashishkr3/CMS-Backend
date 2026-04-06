@@ -29,7 +29,7 @@ const {
 
 //Public route for getting admission windows
 router.get('/windows', getAllAdmissionWindows);
-router.get('/fee-preview',getAdmissionFeePreview);
+router.get('/fee-preview', getAdmissionFeePreview);
 
 // All routes below this middleware require authentication
 router.use(protect);
