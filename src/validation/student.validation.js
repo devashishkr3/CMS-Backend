@@ -141,8 +141,8 @@ const verifyStudentSchema = Joi.object({
 }).or("uan_no", "reg_no", "university_roll"); 
 // At least one of uan_no, reg_no, or university_roll is required along with phone
 
-exports.getStudentByUniversityRollSchema = Joi.object({
-  university_roll: Joi.string().required()
+const getStudentByClassRollSchema = Joi.object({
+  class_roll: Joi.string().trim().required()
 });
 
 //<---------------------------------Bulk Create Students validation schema------------------------------------------>
@@ -218,7 +218,7 @@ module.exports = {
   createStudent,
   updateStudent,
   assignSemester,
+  getStudentByClassRollSchema,
   verifyStudentSchema,
   bulkCreateStudents
 };
-
