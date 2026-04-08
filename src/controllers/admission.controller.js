@@ -12,7 +12,7 @@ const ADMISSION_FEE_RULES = {
   4: {
     baseFee: 3250,
     practicalFee: 600,
-    // lateFee: 500,
+    lateFee: 500,
   },
 };
 
@@ -72,6 +72,7 @@ exports.getAdmissionFeePreview = async (req, res, next) => {
     const practicalFee = practical ? feeRule.practicalFee : 0;
     const lateFee = feeRule.lateFee || 0; // TODO: Implement late fee logic based on current date and semester start date
     const totalFee = baseFee + practicalFee + lateFee;
+    console.log(totalFee);
 
     // console.log(totalFee);
     
@@ -92,8 +93,12 @@ exports.getAdmissionFeePreview = async (req, res, next) => {
           ? `Admission fee for semester ${semesterNumber} with practical is ${totalFee}`
           : `Admission fee for semester ${semesterNumber} without practical is ${totalFee}`,
       },
+      
     });
+    // console.log(data);
+
   } catch (error) {
+    console.error('Error in getAdmissionFeePreview:', error);
     next(error);
   }
 };
