@@ -317,21 +317,11 @@ exports.getAllCourses = async (req, res, next) => {
             code: true,
           },
         },
-        semesters: {
-          where:{
-            number : 4
-          },
+        subjects: {
           select: {
-            number: true,
             id: true,
           },
         },
-        sessions: {
-          select: {
-            id: true,
-            // name: true,
-          }
-        }
       },
       orderBy: {
         name: "asc",
