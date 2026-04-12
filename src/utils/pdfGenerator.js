@@ -62,7 +62,7 @@ exports.generateReceiptPDF = async (payment) => {
   doc
     .fontSize(13)
     .font("Helvetica-Bold")
-    .text("SEMESTER IV PAYMENT RECEIPT", {
+    .text("SEMESTER VI PAYMENT RECEIPT", {
       align: "center",
       underline: true
     });
@@ -84,10 +84,7 @@ exports.generateReceiptPDF = async (payment) => {
   doc.text(`University Roll No:  ${payment.student.university_roll || "N/A"}`);
   doc.moveDown();
 
-  doc.text(`College Roll No:  ${payment.student.class_roll || "N/A"}`);
-  doc.moveDown();
-
-  doc.text(`Session :  2024-2028`);
+  doc.text(`Session :  2023-2027`)
   doc.moveDown();
 
   // FIXED Amount Issue

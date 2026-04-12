@@ -206,7 +206,6 @@ exports.createPayment = async (req, res, next) => {
     }
 
     const { studentId, admissionId, totalAmount, gateway, txnId, referenceNo, breakups } = value;
-    console.log(" payment creation values : ", value);
 
     // For testing: return mock payment if database unavailable
     try {

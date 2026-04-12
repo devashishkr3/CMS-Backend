@@ -244,15 +244,15 @@ exports.getSession = async (req, res, next) => {
             }
           }
         },
-        // students: {
-        //   select: {
-        //     id: true,
-        //     name: true,
-        //     email: true,
-        //     reg_no: true,
-        //     status: true
-        //   }
-        // }
+        students: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            reg_no: true,
+            status: true
+          }
+        }
       }
     });
 
