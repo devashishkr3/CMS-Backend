@@ -56,21 +56,33 @@ exports.generateReceiptPDF = async (payment) => {
   doc.moveDown(2);
 
   // =========================
-  // TITLE
+  // TITLE - Dynamic based on payment type
   // =========================
 
-  doc
-    .fontSize(13)
-    .font("Helvetica-Bold")
-    .text("SEMESTER IV PAYMENT RECEIPT", {
-      align: "center",
-      underline: true
-    });
+  const isCertificatePayment = payment.certificateId && payment.certificate;
+  
+  if (isCertificatePayment) {
+    doc
+      .fontSize(13)
+      .font("Helvetica-Bold")
+      .text(`${payment.certificate.type} CERTIFICATE PAYMENT RECEIPT`, {
+        align: "center",
+        underline: true
+      });
+  } else {
+    doc
+      .fontSize(13)
+      .font("Helvetica-Bold")
+      .text("SEMESTER IV PAYMENT RECEIPT", {
+        align: "center",
+        underline: true
+      });
+  }
 
   doc.moveDown(2);
 
   // =========================
-  // RECEIPT DETAILS
+  // PAYMENT DETAILS
   // =========================
 
   doc.font("Helvetica").fontSize(12);
@@ -78,26 +90,82 @@ exports.generateReceiptPDF = async (payment) => {
   doc.text(`Receipt No:  ${payment.receiptNo}`);
   doc.moveDown();
 
-  doc.text(`Student Name:  ${payment.student.name}`);
+  doc.text(`Transaction ID:  ${payment.txnId}`);
   doc.moveDown();
 
-  doc.text(`University Roll No:  ${payment.student.university_roll || "N/A"}`);
+  doc.text(`Date:  ${new Date(payment.createdAt).toLocaleString('en-IN')}`);
   doc.moveDown();
 
-  doc.text(`College Roll No:  ${payment.student.class_roll || "N/A"}`);
-  doc.moveDown();
+  // =========================
+  // STUDENT/CERTIFICATE DETAILS
+  // =========================
 
-  doc.text(`Session :  2024-2028`);
-  doc.moveDown();
+  if (isCertificatePayment) {
+    // Certificate payment details
+    doc.text(`Student Name:  ${payment.certificate.name || 'N/A'}`);
+    doc.moveDown();
+    
+    doc.text(`Father's Name:  ${payment.certificate.fatherName || 'N/A'}`);
+    doc.moveDown();
+    
+    doc.text(`Certificate Type:  ${payment.certificate.type}`);
+    doc.moveDown();
+    
+    if (payment.certificate.universityRoll) {
+      doc.text(`University Roll:  ${payment.certificate.universityRoll}`);
+      doc.moveDown();
+    }
+    
+    if (payment.certificate.courseName) {
+      doc.text(`Course:  ${payment.certificate.courseName}`);
+      doc.moveDown();
+    }
+    
+    if (payment.certificate.departmentName) {
+      doc.text(`Department:  ${payment.certificate.departmentName}`);
+      doc.moveDown();
+    }
+    
+    if (payment.certificate.semester) {
+      doc.text(`Semester:  ${payment.certificate.semester}`);
+      doc.moveDown();
+    }
+    
+    if (payment.certificate.session) {
+      doc.text(`Session:  ${payment.certificate.session}`);
+      doc.moveDown();
+    }
+  } else {
+    // Admission payment details
+    if (payment.student) {
+      doc.text(`Student Name:  ${payment.student.name || 'N/A'}`);
+      doc.moveDown();
+      
+      doc.text(`University Roll No:  ${payment.student.university_roll || 'N/A'}`);
+      doc.moveDown();
+      
+      doc.text(`College Roll No:  ${payment.student.class_roll || 'N/A'}`);
+      doc.moveDown();
+      
+      doc.text(`Session :  2024-2028`);
+      doc.moveDown();
+    }
+  }
 
-  // FIXED Amount Issue
+  // =========================
+  // AMOUNT
+  // =========================
+
   doc.text(`Amount Paid:  Rs. ${payment.totalAmount}`);
   doc.moveDown();
 
   doc.text(`Payment Status:  ${payment.status}`);
   doc.moveDown();
 
-  doc.text(`Date:  ${new Date().toLocaleString()}`);
+  if (payment.gateway) {
+    doc.text(`Payment Gateway:  ${payment.gateway}`);
+    doc.moveDown();
+  }
 
   doc.moveDown();
   doc.moveDown();
@@ -105,22 +173,24 @@ exports.generateReceiptPDF = async (payment) => {
   doc.moveDown();
 
   // =========================
-  // FEE BREAKUP
+  // FEE BREAKUP (if available)
   // =========================
 
-  // doc
-  //   .font("Helvetica-Bold")
-  //   .text("Fee Breakup:", {
-  //     underline: true
-  //   });
+  if (payment.breakups && payment.breakups.length > 0) {
+    doc
+      .font("Helvetica-Bold")
+      .text("Fee Breakup:", {
+        underline: true
+      });
 
-  // doc.font("Helvetica");
+    doc.font("Helvetica");
 
-  // payment.breakups.forEach((b) => {
-  //   doc.text(`${b.head}: Rs. ${b.amount}`);
-  // });
-
-  doc.moveDown(4);
+    payment.breakups.forEach((b) => {
+      doc.text(`${b.head}: Rs. ${b.amount}`);
+    });
+    
+    doc.moveDown(2);
+  }
 
   // =========================
   // SIGNATURE

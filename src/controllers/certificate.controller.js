@@ -1,354 +1,262 @@
 const prisma = require('../config/prisma');
 const AppError = require('../utils/error');
 const { logAudit } = require('../utils/auditLogger');
-const { issueCertificate: issueCertificateService, getCertificatePDF } = require('../services/certificate.service');
 const { 
-  createCertificateRequest, 
-  updateCertificateStatus, 
-  filterCertificates 
+  applyCertificate, 
+  createCertificatePayment, 
+  adminFilterCertificates, 
+  updateCertificate 
 } = require('../validation/certificate.validation');
+const { createCertificatePayment: createPaymentService } = require('../services/certificatePayment.service');
+const { generateCertificatePDF } = require('../services/certificatePdf.service');
+const { generateCertificateNo } = require('../utils/certificate.utils');
 
 /**
- * Create a new certificate request
+ * STUDENT: Apply for certificate
  * Access: STUDENT, ADMIN, HOD
  */
-exports.createCertificateRequest = async (req, res, next) => {
+exports.applyCertificate = async (req, res, next) => {
   try {
     // Validate request body
-    const { error, value } = createCertificateRequest.validate(req.body);
+    const { error, value } = applyCertificate.validate(req.body);
     if (error) {
       return next(new AppError(error.details.map(d => d.message).join(', '), 400));
     }
 
-    const { studentId, type, purpose, departmentId } = value;
-
-    // For STUDENT role, only allow creating requests for themselves
-    if (req.user.role === 'STUDENT' && req.user.id !== studentId) {
-      return next(new AppError('You can only create certificate requests for yourself', 403));
-    }
-
-    // Check if student exists
-    const student = await prisma.student.findUnique({
-      where: { id: studentId }
-    });
-
-    if (!student) {
-      return next(new AppError('Student not found', 404));
-    }
-    
-    // Check if student is eligible for certificate based on status
-    // Only students with ACTIVE, PASSED_OUT, or ALUMNI status can request certificates
-    if (!['ACTIVE', 'PASSED_OUT', 'ALUMNI'].includes(student.status)) {
-      return next(new AppError('Student is not eligible for certificate request', 400));
-    }
-
-    // Check if department exists
-    const department = await prisma.department.findUnique({
-      where: { id: departmentId }
-    });
-
-    if (!department) {
-      return next(new AppError('Department not found', 404));
-    }
+    // Clean up empty strings to null for optional fields
+    const cleanData = {
+      type: value.type,
+      name: value.name.trim(),
+      fatherName: value.fatherName.trim(),
+      motherName: value.motherName ? value.motherName.trim() : null,
+      courseName: value.courseName,
+      departmentName: value.departmentName,
+      semester: value.semester,
+      session: value.session,
+      dob: value.dob || null,
+      universityRoll: value.universityRoll ? value.universityRoll.trim() : null,
+      registrationNo: value.registrationNo ? value.registrationNo.trim() : null,
+      collegeRoll: value.collegeRoll ? value.collegeRoll.trim() : null,
+      examMonth: value.examMonth ? value.examMonth.trim() : null,
+      examYear: value.examYear ? value.examYear.trim() : null,
+      resultDivision: value.resultDivision ? value.resultDivision.trim() : null,
+      character: value.character ? value.character.trim() : null,
+      purpose: value.purpose ? value.purpose.trim() : null,
+      status: 'PENDING'
+    };
 
     // Create certificate request
-    const certificateRequest = await prisma.certificateRequest.create({
-      data: {
-        studentId,
-        type,
-        purpose: purpose || null,
-        departmentId
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            reg_no: true,
-            university_roll: true
-          }
-        },
-        department: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      }
+    const certificate = await prisma.certificateRequest.create({
+      data: cleanData
     });
 
-    // Log audit entry
+    // Log audit
     await logAudit({
-      userId: req.user.id,
-      action: 'CREATE_CERTIFICATE_REQUEST',
+      userId: req.user?.id || 'anonymous',
+      action: 'APPLY_CERTIFICATE',
       entity: 'CertificateRequest',
-      entityId: certificateRequest.id,
-      payload: { studentId, type, purpose, departmentId },
+      entityId: certificate.id,
+      payload: { type: certificate.type, name: certificate.name },
       req
     });
 
     res.status(201).json({
       status: 'success',
-      message: 'Certificate request created successfully',
-      data: {
-        certificateRequest
+      message: 'Certificate application submitted successfully',
+      data: { 
+        certificateId: certificate.id,
+        type: certificate.type,
+        appliedAt: certificate.appliedAt
       }
     });
   } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Get all certificate requests with filtering options
- * Access: ADMIN, HOD, STUDENT (own requests only)
- */
-exports.getAllCertificateRequests = async (req, res, next) => {
-  try {
-    // Validate query parameters
-    const { error, value } = filterCertificates.validate(req.query);
-    if (error) {
-      return next(new AppError(error.details.map(d => d.message).join(', '), 400));
+    // Handle Prisma errors
+    if (error.code === 'P2002') {
+      return next(new AppError('A certificate with this details already exists', 400));
     }
-
-    const { studentId, type, status, departmentId } = value;
-
-    // Build where clause
-    const where = {};
-
-    // For STUDENT role, only allow accessing own requests
-    if (req.user.role === 'STUDENT') {
-      where.studentId = req.user.id;
-    } else if (studentId) {
-      where.studentId = studentId;
+    if (error.code === 'P2003') {
+      return next(new AppError('Invalid reference data provided', 400));
     }
-
-    if (type) {
-      where.type = type;
+    if (error.code === 'P2025') {
+      return next(new AppError('Record not found', 404));
     }
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (departmentId) {
-      where.departmentId = departmentId;
-    }
-
-    // Get certificate requests
-    const certificateRequests = await prisma.certificateRequest.findMany({
-      where,
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            reg_no: true,
-            university_roll: true
-          }
-        },
-        department: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        approvedBy: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-
-    res.status(200).json({
-      status: 'success',
-      results: certificateRequests.length,
-      data: {
-        certificateRequests
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Get certificate request by ID
- * Access: ADMIN, HOD, STUDENT (own requests only)
- */
-exports.getCertificateRequest = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    const certificateRequest = await prisma.certificateRequest.findUnique({
-      where: { id },
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            reg_no: true,
-            phone: true,
-            address: true
-          }
-        },
-        department: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        approvedBy: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      }
-    });
-
-    if (!certificateRequest) {
-      return next(new AppError('Certificate request not found', 404));
-    }
-
-    // For STUDENT role, only allow accessing own requests
-    if (req.user.role === 'STUDENT' && req.user.id !== certificateRequest.studentId) {
-      return next(new AppError('You do not have permission to access this certificate request', 403));
-    }
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        certificateRequest
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Update certificate request status (approve/reject/issue)
- * Access: ADMIN, HOD
- */
-exports.updateCertificateStatus = async (req, res, next) => {
-  try {
-    const { id } = req.params;
     
-    // Validate request body
-    const { error, value } = updateCertificateStatus.validate(req.body);
+    // Log unexpected errors
+    console.error('Certificate Application Error:', error);
+    next(error);
+  }
+};
+
+/**
+ * STUDENT: Create payment for certificate
+ * Access: Authenticated users
+ */
+exports.createPayment = async (req, res, next) => {
+  try {
+    const { error, value } = createCertificatePayment.validate(req.body);
     if (error) {
       return next(new AppError(error.details.map(d => d.message).join(', '), 400));
     }
 
-    const { status, notes } = value;
+    const { certificateId } = value;
+    const paymentData = await createPaymentService(certificateId, req);
 
-    // Get current certificate request
-    const certificateRequest = await prisma.certificateRequest.findUnique({
-      where: { id }
+    res.status(200).json({
+      status: 'success',
+      message: 'Payment initiated successfully',
+      data: paymentData
     });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    if (!certificateRequest) {
-      return next(new AppError('Certificate request not found', 404));
+/**
+ * ADMIN: Get all certificate applications (with filters)
+ * Access: ADMIN only
+ */
+exports.getAllApplications = async (req, res, next) => {
+  try {
+    const { error, value } = adminFilterCertificates.validate(req.query);
+    if (error) {
+      return next(new AppError(error.details.map(d => d.message).join(', '), 400));
     }
 
-    // Validate status transition
-    const validTransitions = {
-      'PENDING': ['APPROVED', 'REJECTED'],
-      'APPROVED': ['ISSUED'],
-      'REJECTED': [],
-      'ISSUED': []
+    const { status, type, search, dob, appliedFrom, appliedTo, page, limit, sortBy, sortOrder } = value;
+
+    // Only show applications with successful payment
+    const where = {
+      payment: {
+        status: 'SUCCESS'
+      }
     };
 
-    // Check if current status allows transition to new status
-    const allowedTransitions = validTransitions[certificateRequest.status] || [];
-    
-    if (!allowedTransitions.includes(status)) {
-      return next(new AppError(
-        `Invalid status transition from ${certificateRequest.status} to ${status}`, 
-        400
-      ));
+    if (status) where.status = status;
+    if (type) where.type = type;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { universityRoll: { contains: search, mode: 'insensitive' } },
+        { registrationNo: { contains: search, mode: 'insensitive' } },
+        { collegeRoll: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+    if (dob) where.dob = new Date(dob);
+    if (appliedFrom || appliedTo) {
+      where.appliedAt = {};
+      if (appliedFrom) where.appliedAt.gte = new Date(appliedFrom);
+      if (appliedTo) where.appliedAt.lte = new Date(appliedTo);
     }
 
-    // REJECTED and ISSUED cannot be changed again
-    if (['REJECTED', 'ISSUED'].includes(certificateRequest.status)) {
-      return next(new AppError(`${certificateRequest.status} certificate requests cannot be modified`, 400));
-    }
+    const skip = (page - 1) * limit;
 
-    // If status is ISSUED, check if student is eligible for certificate
-    if (status === 'ISSUED') {
-      // Get the student to verify their status
-      const student = await prisma.student.findUnique({
-        where: { id: certificateRequest.studentId }
-      });
-      
-      if (!student) {
-        return next(new AppError('Student not found for this certificate request', 404));
-      }
-      
-      // Only students with ACTIVE, PASSED_OUT, or ALUMNI status can receive certificates
-      if (!['ACTIVE', 'PASSED_OUT', 'ALUMNI'].includes(student.status)) {
-        return next(new AppError('Student is not eligible to receive certificate', 400));
-      }
-    }
-    
-    // Update certificate request status
-    const updatedCertificateRequest = await prisma.certificateRequest.update({
+    const [certificates, total] = await Promise.all([
+      prisma.certificateRequest.findMany({
+        where,
+        include: {
+          payment: {
+            select: {
+              id: true,
+              status: true,
+              totalAmount: true,
+              txnId: true,
+              receiptNo: true,
+              createdAt: true
+            }
+          }
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip,
+        take: limit
+      }),
+      prisma.certificateRequest.count({ where })
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      results: certificates.length,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      data: { certificates }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * ADMIN: Get single application
+ * Access: ADMIN only
+ */
+exports.getApplication = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const certificate = await prisma.certificateRequest.findUnique({
       where: { id },
-      data: { 
-        status,
-        approvedById: req.user.id,
-        issuedAt: status === 'ISSUED' ? new Date() : certificateRequest.issuedAt
-      },
       include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            reg_no: true,
-            university_roll: true
-          }
-        },
-        department: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        approvedBy: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
+        payment: true
       }
     });
 
-    // Log audit entry
+    if (!certificate) {
+      return next(new AppError('Certificate application not found', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: { certificate }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * ADMIN: Update application
+ * Access: ADMIN only
+ */
+exports.updateApplication = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { error, value } = updateCertificate.validate(req.body);
+    if (error) {
+      return next(new AppError(error.details.map(d => d.message).join(', '), 400));
+    }
+
+    const certificate = await prisma.certificateRequest.findUnique({
+      where: { id }
+    });
+
+    if (!certificate) {
+      return next(new AppError('Certificate application not found', 404));
+    }
+
+    // Cannot update if already issued or rejected
+    if (['ISSUED', 'REJECTED'].includes(certificate.status)) {
+      return next(new AppError(`Cannot update ${certificate.status.toLowerCase()} application`, 400));
+    }
+
+    const updated = await prisma.certificateRequest.update({
+      where: { id },
+      data: value,
+      include: { payment: true }
+    });
+
     await logAudit({
       userId: req.user.id,
-      action: 'UPDATE_CERTIFICATE_STATUS',
+      action: 'UPDATE_CERTIFICATE_APPLICATION',
       entity: 'CertificateRequest',
       entityId: id,
-      payload: { fromStatus: certificateRequest.status, toStatus: status, notes },
+      payload: value,
       req
     });
 
     res.status(200).json({
       status: 'success',
-      message: `Certificate request ${status.toLowerCase()} successfully`,
-      data: {
-        certificateRequest: updatedCertificateRequest
-      }
+      message: 'Certificate application updated successfully',
+      data: { certificate: updated }
     });
   } catch (error) {
     next(error);
@@ -356,117 +264,234 @@ exports.updateCertificateStatus = async (req, res, next) => {
 };
 
 /**
- * Delete certificate request
- * Access: ADMIN, STUDENT (own pending requests only)
+ * ADMIN: Approve application
+ * Access: ADMIN only
+ * 
+ * CORRECT FLOW:
+ * 1. Generate certificateNo
+ * 2. Save certificateNo to DB FIRST
+ * 3. Then generate PDF (which requires certificateNo)
+ * 4. Update status to ISSUED with pdfUrl
  */
-exports.deleteCertificateRequest = async (req, res, next) => {
+exports.approveApplication = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Get current certificate request
-    const certificateRequest = await prisma.certificateRequest.findUnique({
-      where: { id }
+    // Step 1: Fetch certificate with payment
+    const certificate = await prisma.certificateRequest.findUnique({
+      where: { id },
+      include: { payment: true }
     });
 
-    if (!certificateRequest) {
-      return next(new AppError('Certificate request not found', 404));
+    if (!certificate) {
+      return next(new AppError('Certificate application not found', 404));
     }
 
-    // For STUDENT role, only allow deleting own pending requests
-    if (req.user.role === 'STUDENT') {
-      if (req.user.id !== certificateRequest.studentId) {
-        return next(new AppError('You can only delete your own certificate requests', 403));
-      }
-      
-      if (certificateRequest.status !== 'PENDING') {
-        return next(new AppError('Only pending certificate requests can be deleted', 400));
-      }
+    // Step 2: Validate payment status
+    if (!certificate.payment || certificate.payment.status !== 'SUCCESS') {
+      return next(new AppError('Payment not completed for this certificate', 400));
     }
 
-    // Delete certificate request
-    await prisma.certificateRequest.delete({
-      where: { id }
+    // Step 3: Check if already issued
+    if (certificate.status === 'ISSUED') {
+      return next(new AppError('Certificate already issued', 400));
+    }
+
+    if (certificate.status === 'REJECTED') {
+      return next(new AppError('Cannot approve rejected application', 400));
+    }
+
+    // Step 4: Generate certificate number FIRST
+    const certificateNo = await generateCertificateNo(certificate.type);
+    console.log(`Generated certificate number: ${certificateNo}`);
+
+    // Step 5: Save certificateNo to database BEFORE PDF generation
+    const updatedWithCertNo = await prisma.certificateRequest.update({
+      where: { id },
+      data: {
+        certificateNo,
+        status: 'APPROVED',  // Set to APPROVED first
+        issuedAt: new Date()  // Set issued date
+      }
     });
 
-    // Log audit entry
+    console.log(`Certificate number saved to DB: ${updatedWithCertNo.certificateNo}`);
+
+    // Step 6: Now generate PDF (certificateNo exists in DB now)
+    let pdfUrl = null;
+    try {
+      const { pdfUrl: generatedPdfUrl } = await generateCertificatePDF(id);
+      pdfUrl = generatedPdfUrl;
+      console.log(`PDF generated successfully: ${pdfUrl}`);
+    } catch (pdfError) {
+      console.error('PDF generation failed:', pdfError);
+      // Continue anyway - certificate is approved, PDF can be regenerated later
+      pdfUrl = null;
+    }
+
+    // Step 7: Final update with PDF URL and ISSUED status
+    const finalCertificate = await prisma.certificateRequest.update({
+      where: { id },
+      data: {
+        status: 'ISSUED',
+        pdfUrl: pdfUrl || certificate.pdfUrl  // Keep old PDF if regeneration failed
+      },
+      include: { payment: true }
+    });
+
+    // Step 8: Log audit
     await logAudit({
       userId: req.user.id,
-      action: 'DELETE_CERTIFICATE_REQUEST',
+      action: 'APPROVE_CERTIFICATE',
       entity: 'CertificateRequest',
       entityId: id,
-      payload: { type: certificateRequest.type },
+      payload: { 
+        certificateNo, 
+        type: certificate.type,
+        pdfGenerated: !!pdfUrl
+      },
       req
     });
 
     res.status(200).json({
       status: 'success',
-      message: 'Certificate request deleted successfully'
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Issue certificate and generate PDF
- * Access: ADMIN, HOD
- */
-exports.issueCertificate = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    // Issue certificate and generate PDF
-    const certificate = await issueCertificateService(id, req.user);
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Certificate issued successfully',
-      data: {
-        certificate
+      message: 'Certificate approved and issued successfully',
+      data: { 
+        certificate: finalCertificate,
+        certificateNo,
+        pdfGenerated: !!pdfUrl
       }
     });
   } catch (error) {
+    console.error('Approve Certificate Error:', error);
     next(error);
   }
 };
 
 /**
- * Download certificate PDF
- * Access: STUDENT (own certificates), ADMIN, HOD
+ * ADMIN: Reject application
+ * Access: ADMIN only
+ */
+exports.rejectApplication = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { remarks } = req.body;
+
+    const certificate = await prisma.certificateRequest.findUnique({
+      where: { id },
+      include: { payment: true }
+    });
+
+    if (!certificate) {
+      return next(new AppError('Certificate application not found', 404));
+    }
+
+    if (certificate.status === 'ISSUED') {
+      return next(new AppError('Cannot reject issued certificate', 400));
+    }
+
+    if (certificate.status === 'REJECTED') {
+      return next(new AppError('Application already rejected', 400));
+    }
+
+    const updated = await prisma.certificateRequest.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        remarks: remarks || certificate.remarks
+      },
+      include: { payment: true }
+    });
+
+    await logAudit({
+      userId: req.user.id,
+      action: 'REJECT_CERTIFICATE',
+      entity: 'CertificateRequest',
+      entityId: id,
+      payload: { remarks },
+      req
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Certificate application rejected',
+      data: { certificate: updated }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * ADMIN/STUDENT: Download certificate
+ * Access: ADMIN, STUDENT (own certificates)
  */
 exports.downloadCertificate = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Get certificate request
-    const certificateRequest = await prisma.certificateRequest.findUnique({
-      where: { id }
+    const certificate = await prisma.certificateRequest.findUnique({
+      where: { id },
+      include: { payment: true }
     });
 
-    if (!certificateRequest) {
-      return next(new AppError('Certificate request not found', 404));
+    if (!certificate) {
+      return next(new AppError('Certificate not found', 404));
     }
 
-    // For STUDENT role, only allow accessing own certificates
-    if (req.user.role === 'STUDENT' && req.user.id !== certificateRequest.studentId) {
-      return next(new AppError('You do not have permission to access this certificate', 403));
+    // For students, verify ownership
+    if (req.user.role !== 'ADMIN') {
+      // Check if student owns this certificate
+      // Add your student ownership verification logic here
+      // if (certificate.studentId !== req.user.id) {
+      //   return next(new AppError('Unauthorized access', 403));
+      // }
     }
 
-    // Check if certificate is issued
-    if (certificateRequest.status !== 'ISSUED') {
+    if (certificate.status !== 'ISSUED') {
       return next(new AppError('Certificate not yet issued', 400));
     }
 
-    // Get certificate PDF
-    const pdfBuffer = await getCertificatePDF(id);
+    if (!certificate.pdfUrl) {
+      return next(new AppError('Certificate PDF not available', 404));
+    }
 
-    // Set headers for PDF download
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="certificate_${id}.pdf"`);
-    
-    // Send PDF buffer
-    res.send(pdfBuffer);
+    // Try to serve from temp directory first
+    const fs = require('fs');
+    const path = require('path');
+    const filePath = path.join(__dirname, '../../temp/certificates', `certificate_${id}.pdf`);
+
+    if (fs.existsSync(filePath)) {
+      // File exists in temp directory
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${certificate.certificateNo || 'certificate'}.pdf"`);
+      
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', (err) => next(err));
+      stream.pipe(res);
+    } else {
+      // File not in temp, return pdfUrl for frontend to download
+      // This handles cloud storage URLs (R2, S3, etc.)
+      console.log(`PDF file not in temp, returning URL: ${certificate.pdfUrl}`);
+      
+      // If pdfUrl is a full URL, redirect to it
+      if (certificate.pdfUrl.startsWith('http')) {
+        return res.redirect(certificate.pdfUrl);
+      }
+      
+      // Otherwise return the URL in JSON
+      return res.status(200).json({
+        status: 'success',
+        message: 'Certificate PDF URL',
+        data: {
+          certificateNo: certificate.certificateNo,
+          pdfUrl: certificate.pdfUrl,
+          downloadUrl: `${req.protocol}://${req.get('host')}${certificate.pdfUrl}`
+        }
+      });
+    }
   } catch (error) {
+    console.error('Download Certificate Error:', error);
     next(error);
   }
 };

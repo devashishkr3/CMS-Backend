@@ -466,6 +466,24 @@ exports.getPayment = async (req, res, next) => {
             status: true
           }
         },
+        certificate: {  // Include certificate data
+          select: {
+            id: true,
+            type: true,
+            name: true,
+            fatherName: true,
+            motherName: true,
+            universityRoll: true,
+            registrationNo: true,
+            collegeRoll: true,
+            courseName: true,
+            departmentName: true,
+            semester: true,
+            session: true,
+            status: true,
+            certificateNo: true
+          }
+        },
         breakups: true
       }
     });
@@ -756,10 +774,11 @@ exports.getDCR1Report = async (req, res, next) => {
     const endOfToday = new Date(startOfToday);
     endOfToday.setDate(endOfToday.getDate() + 1);
     
-    // Get total successful payment collection (all-time)
+    // Get total successful payment collection (all-time) - ADMISSION ONLY
     const totalCollection = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
+        admissionId: { not: null }  // Exclude certificate payments
       },
       _sum: {
         totalAmount: true
@@ -767,10 +786,11 @@ exports.getDCR1Report = async (req, res, next) => {
       _count: true
     });
     
-    // Get this month's successful payment collection
+    // Get this month's successful payment collection - ADMISSION ONLY
     const monthCollection = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
+        admissionId: { not: null },  // Exclude certificate payments
         createdAt: {
           gte: startOfMonth,
           lt: endOfToday // Up to now
@@ -782,10 +802,11 @@ exports.getDCR1Report = async (req, res, next) => {
       _count: true
     });
     
-    // Get today's successful payment collection
+    // Get today's successful payment collection - ADMISSION ONLY
     const todayCollection = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
+        admissionId: { not: null },  // Exclude certificate payments
         createdAt: {
           gte: startOfToday,
           lt: endOfToday
@@ -797,10 +818,11 @@ exports.getDCR1Report = async (req, res, next) => {
       _count: true
     });
     
-    // Get detailed breakdown for today's collections
+    // Get detailed breakdown for today's collections - ADMISSION ONLY
     const todayPaymentsDetail = await prisma.payment.findMany({
       where: {
         status: 'SUCCESS',
+        admissionId: { not: null },  // Exclude certificate payments
         createdAt: {
           gte: startOfToday,
           lt: endOfToday
@@ -842,10 +864,11 @@ exports.getDCR1Report = async (req, res, next) => {
       }
     });
     
-    // Get detailed breakdown for this month's collections
+    // Get detailed breakdown for this month's collections - ADMISSION ONLY
     const monthPaymentsDetail = await prisma.payment.findMany({
       where: {
         status: 'SUCCESS',
+        admissionId: { not: null },  // Exclude certificate payments
         createdAt: {
           gte: startOfMonth,
           lt: endOfToday
@@ -978,10 +1001,11 @@ exports.getDCR1ReportWithDateRange = async (req, res, next) => {
       return next(new AppError('Date range cannot exceed 365 days', 400));
     }
     
-    // Get total collection within date range
+    // Get total collection within date range - ADMISSION ONLY
     const rangeCollection = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
+        admissionId: { not: null },  // Exclude certificate payments
         createdAt: {
           gte: start,
           lte: end
@@ -993,10 +1017,11 @@ exports.getDCR1ReportWithDateRange = async (req, res, next) => {
       _count: true
     });
     
-    // Get all detailed transactions within date range
+    // Get all detailed transactions within date range - ADMISSION ONLY
     const paymentsDetail = await prisma.payment.findMany({
       where: {
         status: 'SUCCESS',
+        admissionId: { not: null },  // Exclude certificate payments
         createdAt: {
           gte: start,
           lte: end
@@ -1844,6 +1869,13 @@ exports.paymentCallback = async (req, res, next) => {
           data: { status: 'CONFIRMED' }
         });
         // console.log(`✅ [CALLBACK] Admission confirmed`);
+      }
+
+      // Handle certificate payment success
+      if (payment.certificateId) {
+        console.log(`✅ [CALLBACK] Certificate payment successful: ${payment.certificateId}`);
+        // Certificate application will be visible to admin once payment is SUCCESS
+        // No additional action needed here
       }
 
       // Do not block callback ACK on PDF generation/upload.
