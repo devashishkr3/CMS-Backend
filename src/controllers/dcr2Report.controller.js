@@ -89,7 +89,8 @@ exports.getDCR2Report = async (req, res, next) => {
       certificateNo: p.certificate?.certificateNo || 'N/A',
       name: p.certificate?.name || 'N/A',  // Include name
       fatherName: p.certificate?.fatherName || 'N/A',  // Include father name
-      date: p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : 'N/A',  // Format date
+      date: p.createdAt ? p.createdAt.toISOString() : null,
+      displayDate: p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : 'N/A',
       status: p.certificate?.status || 'N/A'
     }));
 
@@ -98,17 +99,22 @@ exports.getDCR2Report = async (req, res, next) => {
       generatedAt: now.toISOString(),
       summary: {
         totalApplications: totalApplications || 0,
+        approved: approvedApplications || 0,
+        pending: pendingApplications || 0,
+        rejected: rejectedApplications || 0,
         approvedApplications: approvedApplications || 0,
         pendingApplications: pendingApplications || 0,
         rejectedApplications: rejectedApplications || 0
       },
       collections: {
+        todayCollection: Number(todaysCollection._sum.totalAmount) || 0,
+        totalCollection: Number(totalCollection._sum.totalAmount) || 0,
         todaysCollection: {
           amount: Number(todaysCollection._sum.totalAmount) || 0,  // Prevent NaN
           count: todaysCollection._count || 0,
           date: startOfToday.toISOString()
         },
-        totalCollection: {
+        totalCollectionDetails: {
           amount: Number(totalCollection._sum.totalAmount) || 0,  // Prevent NaN
           count: totalCollection._count || 0
         }

@@ -7,6 +7,15 @@ const {
   CERTIFICATE_FEES 
 } = require('../utils/certificate.constants');
 
+const VALID_EXAM_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+const VALID_RESULT_DIVISIONS = [
+  'DISTINCTION', 'FIRST', 'SECOND', 'THIRD', 'PASS'
+];
+
 // Certificate fees mapping
 exports.CERTIFICATE_FEES = CERTIFICATE_FEES;
 exports.VALID_DEPARTMENTS = VALID_DEPARTMENTS;
@@ -78,17 +87,17 @@ exports.applyCertificate = Joi.object({
   dob: Joi.date().optional().messages({
     'date.base': 'Date of birth must be a valid date'
   }),
-  examMonth: Joi.string().optional().trim().max(50).allow('').messages({
+  examMonth: Joi.string().optional().trim().valid(...VALID_EXAM_MONTHS).allow('').messages({
     'string.base': 'Exam month must be a string',
-    'string.max': 'Exam month cannot exceed 50 characters'
+    'any.only': `Exam month must be one of: ${VALID_EXAM_MONTHS.join(', ')}`
   }),
-  examYear: Joi.string().optional().trim().max(10).allow('').messages({
+  examYear: Joi.string().optional().trim().pattern(/^(19|20)\d{2}$/).allow('').messages({
     'string.base': 'Exam year must be a string',
-    'string.max': 'Exam year cannot exceed 10 characters'
+    'string.pattern.base': 'Exam year must be a valid 4-digit year'
   }),
-  resultDivision: Joi.string().optional().trim().max(50).allow('').messages({
+  resultDivision: Joi.string().optional().trim().valid(...VALID_RESULT_DIVISIONS).allow('').messages({
     'string.base': 'Result division must be a string',
-    'string.max': 'Result division cannot exceed 50 characters'
+    'any.only': `Result division must be one of: ${VALID_RESULT_DIVISIONS.join(', ')}`
   }),
   character: Joi.string().optional().trim().max(500).allow('').messages({
     'string.base': 'Character must be a string',
@@ -155,17 +164,17 @@ exports.updateCertificate = Joi.object({
     'string.max': 'Session cannot exceed 20 characters'
   }),
   // Additional fields for admin editing
-  examMonth: Joi.string().optional().trim().max(50).allow('').messages({
+  examMonth: Joi.string().optional().trim().valid(...VALID_EXAM_MONTHS).allow('').messages({
     'string.base': 'Exam month must be a string',
-    'string.max': 'Exam month cannot exceed 50 characters'
+    'any.only': `Exam month must be one of: ${VALID_EXAM_MONTHS.join(', ')}`
   }),
-  examYear: Joi.string().optional().trim().max(10).allow('').messages({
+  examYear: Joi.string().optional().trim().pattern(/^(19|20)\d{2}$/).allow('').messages({
     'string.base': 'Exam year must be a string',
-    'string.max': 'Exam year cannot exceed 10 characters'
+    'string.pattern.base': 'Exam year must be a valid 4-digit year'
   }),
-  resultDivision: Joi.string().optional().trim().max(50).allow('').messages({
+  resultDivision: Joi.string().optional().trim().valid(...VALID_RESULT_DIVISIONS).allow('').messages({
     'string.base': 'Result division must be a string',
-    'string.max': 'Result division cannot exceed 50 characters'
+    'any.only': `Result division must be one of: ${VALID_RESULT_DIVISIONS.join(', ')}`
   }),
   character: Joi.string().optional().trim().max(500).allow('').messages({
     'string.base': 'Character must be a string',

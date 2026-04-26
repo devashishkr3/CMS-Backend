@@ -150,7 +150,7 @@ exports.getAllApplications = async (req, res, next) => {
 
     const skip = (page - 1) * limit;
 
-    const [certificates, total] = await Promise.all([
+    const [certificates, total, groupedStatuses] = await Promise.all([
       prisma.certificateRequest.findMany({
         where,
         include: {
@@ -169,8 +169,33 @@ exports.getAllApplications = async (req, res, next) => {
         skip,
         take: limit
       }),
-      prisma.certificateRequest.count({ where })
+      prisma.certificateRequest.count({ where }),
+      prisma.certificateRequest.groupBy({
+        by: ['status'],
+        where,
+        _count: {
+          status: true
+        }
+      })
     ]);
+
+    const stats = groupedStatuses.reduce((acc, item) => {
+      const count = item._count?.status || 0;
+      acc.total += count;
+
+      if (item.status === 'PENDING') acc.pending = count;
+      if (item.status === 'APPROVED') acc.approved = count;
+      if (item.status === 'ISSUED') acc.issued = count;
+      if (item.status === 'REJECTED') acc.rejected = count;
+
+      return acc;
+    }, {
+      total: 0,
+      pending: 0,
+      approved: 0,
+      issued: 0,
+      rejected: 0
+    });
 
     res.status(200).json({
       status: 'success',
@@ -178,7 +203,21 @@ exports.getAllApplications = async (req, res, next) => {
       total,
       page,
       totalPages: Math.ceil(total / limit),
-      data: { certificates }
+      stats,
+      data: {
+        certificates,
+        certificateRequests: certificates,
+        stats
+      },
+      certificates,
+      certificateRequests: certificates,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        stats
+      }
     });
   } catch (error) {
     next(error);
@@ -417,6 +456,33 @@ exports.rejectApplication = async (req, res, next) => {
       message: 'Certificate application rejected',
       data: { certificate: updated }
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * ADMIN: Update certificate status through frontend-compatible endpoint
+ * Access: ADMIN only
+ */
+exports.updateApplicationStatus = async (req, res, next) => {
+  try {
+    const { status, remarks } = req.body;
+
+    if (!status) {
+      return next(new AppError('Status is required', 400));
+    }
+
+    if (status === 'APPROVED') {
+      return exports.approveApplication(req, res, next);
+    }
+
+    if (status === 'REJECTED') {
+      req.body = { remarks };
+      return exports.rejectApplication(req, res, next);
+    }
+
+    return next(new AppError('Unsupported status update', 400));
   } catch (error) {
     next(error);
   }
