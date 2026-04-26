@@ -59,8 +59,8 @@ ALTER TABLE "Payment" ADD COLUMN     "certificateId" TEXT,
 ALTER COLUMN "studentId" DROP NOT NULL;
 
 -- AlterTable
-ALTER TABLE "Student" ALTER COLUMN "email" SET NOT NULL,
-ALTER COLUMN "phone" SET NOT NULL;
+-- ALTER TABLE "Student" ALTER COLUMN "email" SET NOT NULL,
+-- ALTER COLUMN "phone" SET NOT NULL;
 
 -- CreateIndex
 CREATE UNIQUE INDEX "CertificateRequest_certificateNo_key" ON "CertificateRequest"("certificateNo");
