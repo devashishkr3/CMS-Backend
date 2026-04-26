@@ -4,9 +4,15 @@ const { generateReceiptPDF, generateCertificatePDF } = require("../utils/pdfGene
 const { uploadFileToR2 } = require("../utils/uploadToR2");
 
 exports.generateReceiptAndCertificate = async (paymentId) => {
+  // Fetch payment with certificate data (for certificate payments)
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
-    include: { student: true, admission: true, breakups: true }
+    include: { 
+      student: true, 
+      admission: true, 
+      breakups: true,
+      certificate: true  // Include certificate data
+    }
   });
 
   if (!payment) {
@@ -31,12 +37,18 @@ exports.generateReceiptAndCertificate = async (paymentId) => {
   }
   fs.promises.unlink(receiptPath).catch(() => {});
 
-  // Certificate generation should not block payment receipt flow.
-  try {
-    const certPath = await generateCertificatePDF(payment.student, payment.admission);
-    await uploadFileToR2(certPath, `certificates/${payment.student.reg_no}.pdf`);
-    fs.promises.unlink(certPath).catch(() => {});
-  } catch (err) {
-    console.warn("Certificate generation/upload failed:", err.message);
+  // Handle certificate-specific generation
+  if (payment.certificateId && payment.certificate) {
+    // Certificate payments: certificate PDF is generated during approval, not here
+    console.log(`Receipt generated for certificate payment: ${payment.certificate.type}`);
+  } else {
+    // Admission payments: generate certificate as before
+    try {
+      const certPath = await generateCertificatePDF(payment.student, payment.admission);
+      await uploadFileToR2(certPath, `certificates/${payment.student.reg_no}.pdf`);
+      fs.promises.unlink(certPath).catch(() => {});
+    } catch (err) {
+      console.warn("Certificate generation/upload failed:", err.message);
+    }
   }
 };

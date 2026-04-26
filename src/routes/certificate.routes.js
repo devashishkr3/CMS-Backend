@@ -1,38 +1,113 @@
 const express = require('express');
 const router = express.Router();
+const { protect, restrictTo } = require('../middlewares/auth.middleware');
+const joiValidator = require('../middlewares/joiValidator');
 const { 
-  createCertificateRequest,
-  getAllCertificateRequests,
-  getCertificateRequest,
-  updateCertificateStatus,
-  deleteCertificateRequest,
-  issueCertificate,
+  applyCertificate, 
+  createCertificatePayment,
+  adminFilterCertificates,
+  updateCertificate
+} = require('../validation/certificate.validation');
+
+const {
+  applyCertificate: applyCertificateController,
+  createPayment: createPaymentController,
+  getAllApplications,
+  getApplication,
+  updateApplication,
+  updateApplicationStatus,
+  approveApplication,
+  rejectApplication,
   downloadCertificate
 } = require('../controllers/certificate.controller');
-const { protect, restrictTo } = require('../middlewares/auth.middleware');
 
-// Apply protection middleware to all routes
-router.use(protect);
+// STUDENT ROUTES
+router.post('/',
+  joiValidator(applyCertificate, 'body'),
+  applyCertificateController
+);
 
-// Create certificate request (STUDENT, ADMIN, HOD)
-router.post('/', restrictTo('STUDENT', 'ADMIN', 'HOD'), createCertificateRequest);
+router.post('/apply', 
+  // protect, 
+  // restrictTo('STUDENT', 'ADMIN', 'HOD'),
+  joiValidator(applyCertificate, 'body'), 
+  applyCertificateController
+);
 
-// Get all certificate requests (ADMIN, HOD, STUDENT)
-router.get('/', restrictTo('ADMIN', 'HOD', 'STUDENT'), getAllCertificateRequests);
+router.post('/payment/create', 
+  // protect,
+  joiValidator(createCertificatePayment, 'body'),
+  createPaymentController
+);
 
-// Get certificate request by ID (ADMIN, HOD, STUDENT)
-router.get('/:id', restrictTo('ADMIN', 'HOD', 'STUDENT'), getCertificateRequest);
+// ADMIN ROUTES
+router.get('/',
+  protect,
+  restrictTo('ADMIN'),
+  joiValidator(adminFilterCertificates, 'query'),
+  getAllApplications
+);
 
-// Update certificate status (ADMIN, HOD)
-router.patch('/:id/status', restrictTo('ADMIN', 'HOD'), updateCertificateStatus);
+router.get('/admin', 
+  protect, 
+  restrictTo('ADMIN'),
+  joiValidator(adminFilterCertificates, 'query'),
+  getAllApplications
+);
 
-// Issue certificate and generate PDF (ADMIN, HOD)
-router.post('/:id/issue', restrictTo('ADMIN', 'HOD'), issueCertificate);
+router.get('/:id',
+  protect,
+  restrictTo('ADMIN'),
+  getApplication
+);
 
-// Download certificate PDF (STUDENT for own certificates, ADMIN, HOD)
-router.get('/:id/download', restrictTo('STUDENT', 'ADMIN', 'HOD'), downloadCertificate);
+router.get('/admin/:id', 
+  protect, 
+  restrictTo('ADMIN'),
+  getApplication
+);
 
-// Delete certificate request (ADMIN, STUDENT for own pending requests)
-router.delete('/:id', restrictTo('ADMIN', 'STUDENT'), deleteCertificateRequest);
+router.patch('/:id/status',
+  protect,
+  restrictTo('ADMIN'),
+  updateApplicationStatus
+);
+
+router.patch('/admin/:id', 
+  protect, 
+  restrictTo('ADMIN'),
+  joiValidator(updateCertificate, 'body'),
+  updateApplication
+);
+
+router.patch('/admin/:id/approve', 
+  protect, 
+  restrictTo('ADMIN'),
+  approveApplication
+);
+
+router.post('/:id/issue',
+  protect,
+  restrictTo('ADMIN'),
+  approveApplication
+);
+
+router.patch('/admin/:id/reject', 
+  protect, 
+  restrictTo('ADMIN'),
+  rejectApplication
+);
+
+router.get('/:id/download',
+  protect,
+  restrictTo('ADMIN', 'STUDENT'),
+  downloadCertificate
+);
+
+router.get('/admin/:id/download', 
+  protect, 
+  restrictTo('ADMIN', 'STUDENT'),
+  downloadCertificate
+);
 
 module.exports = router;

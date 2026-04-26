@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -233,10 +234,10 @@ model Payment {
   totalAmount      Decimal
   bankTxnNo        String?
   gatewayPaymentId String?
-  admission        Admission?          @relation(fields: [admissionId], references: [id])
-  student          Student?            @relation(fields: [studentId], references: [id])
   certificateId    String?             @unique
+  admission        Admission?          @relation(fields: [admissionId], references: [id])
   certificate      CertificateRequest? @relation(fields: [certificateId], references: [id])
+  student          Student?            @relation(fields: [studentId], references: [id])
   breakups         PaymentBreakup[]
   receipt          Receipt[]
   refund           Refund?
@@ -285,46 +286,33 @@ model Refund {
 }
 
 model CertificateRequest {
-  id String @id @default(uuid())
-
-  type          CertificateType
-  certificateNo String?         @unique
-
-  name       String
-  fatherName String
-  motherName String?
-
+  id             String            @id @default(uuid())
+  type           CertificateType
+  purpose        String?
+  status         CertificateStatus @default(PENDING)
+  issuedAt       DateTime?
+  pdfUrl         String?
+  appliedAt      DateTime          @default(now())
+  certificateNo  String?           @unique
+  character      String?
   collegeRoll    String?
-  universityRoll String?
-  registrationNo String?
-
   courseName     String
+  createdAt      DateTime          @default(now())
   departmentName String
-  semester       String
-  session        String
-
-  dob DateTime?
-
+  dob            DateTime?
   examMonth      String?
   examYear       String?
+  fatherName     String
+  motherName     String?
+  name           String
+  registrationNo String?
+  remarks        String?
   resultDivision String?
-
-  character String?
-
-  purpose String?
-  remarks String?
-
-  status CertificateStatus @default(PENDING)
-
-  appliedAt DateTime  @default(now())
-  issuedAt  DateTime?
-
-  pdfUrl String?
-
-  payment Payment?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  semester       String
+  session        String
+  universityRoll String?
+  updatedAt      DateTime          @updatedAt
+  payment        Payment?
 }
 
 model Gallery {

@@ -102,7 +102,8 @@ const handleKnownErrors = (err) => {
   
   // Prisma client initialization error
   if (err.name === "PrismaClientInitializationError") {
-    return new AppError("Database connection error", 500);
+    const details = err.message ? `: ${err.message}` : "";
+    return new AppError(`Database connection error${details}`, 500);
   }
   
   // Prisma client runtime error
