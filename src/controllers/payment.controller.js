@@ -519,7 +519,8 @@ exports.downloadPublicInvoice = async (req, res, next) => {
       where: { id },
       include: {
         student: true,
-        breakups: true
+        breakups: true,
+        certificate: true  // Include certificate data for certificate payments
       }
     });
 

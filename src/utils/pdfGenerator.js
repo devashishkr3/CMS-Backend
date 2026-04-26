@@ -63,9 +63,9 @@ exports.generateReceiptPDF = async (payment) => {
   
   if (isCertificatePayment) {
     doc
-      .fontSize(13)
+      .fontSize(16)
       .font("Helvetica-Bold")
-      .text(`${payment.certificate.type} CERTIFICATE PAYMENT RECEIPT`, {
+      .text("PAYMENT RECEIPT", {
         align: "center",
         underline: true
       });
@@ -101,7 +101,18 @@ exports.generateReceiptPDF = async (payment) => {
   // =========================
 
   if (isCertificatePayment) {
-    // Certificate payment details
+    // Certificate payment details - Simple format
+    doc.moveDown();
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text("Payment Details:", {
+        underline: true
+      });
+    
+    doc.font("Helvetica").fontSize(12);
+    doc.moveDown();
+    
     doc.text(`Student Name:  ${payment.certificate.name || 'N/A'}`);
     doc.moveDown();
     
@@ -109,6 +120,9 @@ exports.generateReceiptPDF = async (payment) => {
     doc.moveDown();
     
     doc.text(`Certificate Type:  ${payment.certificate.type}`);
+    doc.moveDown();
+    
+    doc.text(`Purpose:  Certificate ${payment.certificate.type} Application Fee`);
     doc.moveDown();
     
     if (payment.certificate.universityRoll) {
@@ -156,6 +170,17 @@ exports.generateReceiptPDF = async (payment) => {
   // AMOUNT
   // =========================
 
+  doc.moveDown();
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(12)
+    .text("Payment Amount:", {
+      underline: true
+    });
+  
+  doc.font("Helvetica").fontSize(12);
+  doc.moveDown();
+
   doc.text(`Amount Paid:  Rs. ${payment.totalAmount}`);
   doc.moveDown();
 
@@ -196,9 +221,16 @@ exports.generateReceiptPDF = async (payment) => {
   // SIGNATURE
   // =========================
 
-  doc.text("Authorized Signature", {
-    align: "right"
+  if(isCertificatePayment){
+    doc.text("computer generated receipt does not require signature", {
+      align: "center",
+      oblique: true
   });
+  }else{
+      doc.text("Authorized Signature", {
+      align: "right"
+  });
+  }
 
   // =========================
   // FOOTER LINE
