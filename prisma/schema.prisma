@@ -382,6 +382,7 @@ enum StudentStatus {
 enum CertificateType {
   BONAFIDE
   CLC
+  CHARACTER
 }
 
 enum CertificateStatus {
