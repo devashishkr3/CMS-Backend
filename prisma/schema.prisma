@@ -5,7 +5,6 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -382,6 +381,7 @@ enum StudentStatus {
 enum CertificateType {
   BONAFIDE
   CLC
+  CHARACTER
 }
 
 enum CertificateStatus {
