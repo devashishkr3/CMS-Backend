@@ -13,13 +13,14 @@ exports.VALID_DEPARTMENTS = [
   'HINDI',
   'ENGLISH',
   'URDU',
-  'GEOGRAPHY',
+  // 'GEOGRAPHY',
   'PSYCHOLOGY',
   'SOCIOLOGY',
   'HISTORY',
   'POLITICAL SCIENCE',
   'ECONOMICS',
-  'HOME SCIENCE'
+  'HOME SCIENCE',
+  'SANSKRIT',
 ];
 
 // Valid Course Names
