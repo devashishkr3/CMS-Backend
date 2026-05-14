@@ -25,9 +25,9 @@ exports.VALID_SESSIONS = VALID_SESSIONS;
 
 // Validation for applying certificate (student)
 exports.applyCertificate = Joi.object({
-  type: Joi.string().valid('BONAFIDE', 'CLC', 'CHARACTER').required().messages({
+  type: Joi.string().valid('BONAFIDE', 'CLC_CHARACTER').required().messages({
     'string.base': 'Certificate type must be a string',
-    'any.only': 'Certificate type must be BONAFIDE, CLC, or CHARACTER',
+    'any.only': 'Certificate type must be BONAFIDE or CLC_CHARACTER',
     'any.required': 'Certificate type is required'
   }),
   name: Joi.string().required().trim().min(3).max(200).messages({
@@ -72,11 +72,15 @@ exports.applyCertificate = Joi.object({
     'string.empty': 'Department name is required',
     'any.required': 'Department name is required'
   }),
-  semester: Joi.string().required().valid(...VALID_SEMESTERS).messages({
-    'string.base': 'Semester must be a string',
-    'any.only': `Semester must be one of: ${VALID_SEMESTERS.join(', ')}`,
-    'string.empty': 'Semester is required',
-    'any.required': 'Semester is required'
+  semester: Joi.when('type', {
+    is: 'CLC_CHARACTER',
+    then: Joi.string().optional().allow('', null),
+    otherwise: Joi.string().required().valid(...VALID_SEMESTERS).messages({
+      'string.base': 'Semester must be a string',
+      'any.only': `Semester / part must be one of: ${VALID_SEMESTERS.join(', ')}`,
+      'string.empty': 'Semester / part is required',
+      'any.required': 'Semester / part is required'
+    })
   }),
   session: Joi.string().required().valid(...VALID_SESSIONS).messages({
     'string.base': 'Session must be a string',
@@ -196,9 +200,9 @@ exports.adminFilterCertificates = Joi.object({
     'string.base': 'Status must be a string',
     'any.only': 'Status must be PENDING, APPROVED, REJECTED, or ISSUED'
   }),
-  type: Joi.string().valid('BONAFIDE', 'CLC', 'CHARACTER').optional().messages({
+  type: Joi.string().valid('BONAFIDE', 'CLC_CHARACTER', 'CLC', 'CHARACTER').optional().messages({
     'string.base': 'Type must be a string',
-    'any.only': 'Type must be BONAFIDE, CLC, or CHARACTER'
+    'any.only': 'Type must be BONAFIDE, CLC_CHARACTER, CLC, or CHARACTER'
   }),
   search: Joi.string().optional().max(200).messages({
     'string.base': 'Search must be a string',

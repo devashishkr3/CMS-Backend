@@ -1,6 +1,7 @@
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
+const { formatCertificateTypeLabel } = require("./certificateDisplay");
 
 exports.generateReceiptPDF = async (payment) => {
   const filePath = path.join("/tmp", `receipt-${payment.receiptNo}.pdf`);
@@ -119,10 +120,12 @@ exports.generateReceiptPDF = async (payment) => {
     doc.text(`Father's Name:  ${payment.certificate.fatherName || 'N/A'}`);
     doc.moveDown();
     
-    doc.text(`Certificate Type:  ${payment.certificate.type}`);
+    const certTypeLabel = formatCertificateTypeLabel(payment.certificate.type);
+
+    doc.text(`Certificate Type:  ${certTypeLabel}`);
     doc.moveDown();
-    
-    doc.text(`Purpose:  Certificate ${payment.certificate.type} Application Fee`);
+
+    doc.text(`Purpose:  Certificate (${certTypeLabel}) application fee`);
     doc.moveDown();
     
     if (payment.certificate.universityRoll) {
@@ -141,7 +144,7 @@ exports.generateReceiptPDF = async (payment) => {
     }
     
     if (payment.certificate.semester) {
-      doc.text(`Semester:  ${payment.certificate.semester}`);
+      doc.text(`Semester / Part:  ${payment.certificate.semester}`);
       doc.moveDown();
     }
     

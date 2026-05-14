@@ -8,7 +8,7 @@ const {
   updateCertificate 
 } = require('../validation/certificate.validation');
 const { createCertificatePayment: createPaymentService } = require('../services/certificatePayment.service');
-const { generateCertificatePDF } = require('../services/certificatePdf.service');
+const { renderCertificatePdfBuffer } = require('../services/certificatePdf.service');
 const { generateCertificateNo } = require('../utils/certificate.utils');
 
 /**
@@ -24,6 +24,9 @@ exports.applyCertificate = async (req, res, next) => {
     }
 
     // Clean up empty strings to null for optional fields
+    const semester =
+      value.type === 'CLC_CHARACTER' ? 'PART 3' : value.semester;
+
     const cleanData = {
       type: value.type,
       name: value.name.trim(),
@@ -31,7 +34,7 @@ exports.applyCertificate = async (req, res, next) => {
       motherName: value.motherName ? value.motherName.trim() : null,
       courseName: value.courseName,
       departmentName: value.departmentName,
-      semester: value.semester,
+      semester,
       session: value.session,
       dob: value.dob || null,
       universityRoll: value.universityRoll ? value.universityRoll.trim() : null,
@@ -305,12 +308,10 @@ exports.updateApplication = async (req, res, next) => {
 /**
  * ADMIN: Approve application
  * Access: ADMIN only
- * 
- * CORRECT FLOW:
- * 1. Generate certificateNo
- * 2. Save certificateNo to DB FIRST
- * 3. Then generate PDF (which requires certificateNo)
- * 4. Update status to ISSUED with pdfUrl
+ *
+ * Flow:
+ * 1. Generate certificate number(s)
+ * 2. Persist numbers and set status to ISSUED (PDFs are generated on download only)
  */
 exports.approveApplication = async (req, res, next) => {
   try {
@@ -340,54 +341,41 @@ exports.approveApplication = async (req, res, next) => {
       return next(new AppError('Cannot approve rejected application', 400));
     }
 
-    // Step 4: Generate certificate number FIRST
-    const certificateNo = await generateCertificateNo(certificate.type);
-    console.log(`Generated certificate number: ${certificateNo}`);
+    const isCombined = certificate.type === 'CLC_CHARACTER';
 
-    // Step 5: Save certificateNo to database BEFORE PDF generation
-    const updatedWithCertNo = await prisma.certificateRequest.update({
-      where: { id },
-      data: {
-        certificateNo,
-        status: 'APPROVED',  // Set to APPROVED first
-        issuedAt: new Date()  // Set issued date
-      }
-    });
-
-    console.log(`Certificate number saved to DB: ${updatedWithCertNo.certificateNo}`);
-
-    // Step 6: Now generate PDF (certificateNo exists in DB now)
-    let pdfUrl = null;
-    try {
-      const { pdfUrl: generatedPdfUrl } = await generateCertificatePDF(id);
-      pdfUrl = generatedPdfUrl;
-      console.log(`PDF generated successfully: ${pdfUrl}`);
-    } catch (pdfError) {
-      console.error('PDF generation failed:', pdfError);
-      // Continue anyway - certificate is approved, PDF can be regenerated later
-      pdfUrl = null;
+    let certificateNo;
+    let characterCertificateNo = null;
+    if (isCombined) {
+      certificateNo = await generateCertificateNo('CLC');
+      characterCertificateNo = await generateCertificateNo('CHARACTER');
+      console.log(`Generated CLC number: ${certificateNo}, Character number: ${characterCertificateNo}`);
+    } else {
+      certificateNo = await generateCertificateNo(certificate.type);
+      console.log(`Generated certificate number: ${certificateNo}`);
     }
 
-    // Step 7: Final update with PDF URL and ISSUED status
     const finalCertificate = await prisma.certificateRequest.update({
       where: { id },
       data: {
+        certificateNo,
+        ...(isCombined ? { characterCertificateNo } : {}),
         status: 'ISSUED',
-        pdfUrl: pdfUrl || certificate.pdfUrl  // Keep old PDF if regeneration failed
+        issuedAt: new Date(),
       },
-      include: { payment: true }
+      include: { payment: true },
     });
 
-    // Step 8: Log audit
+    console.log(`Certificate issued (numbers saved): ${finalCertificate.certificateNo}`);
+
     await logAudit({
       userId: req.user.id,
       action: 'APPROVE_CERTIFICATE',
       entity: 'CertificateRequest',
       entityId: id,
-      payload: { 
-        certificateNo, 
+      payload: {
+        certificateNo,
+        characterCertificateNo: isCombined ? characterCertificateNo : undefined,
         type: certificate.type,
-        pdfGenerated: !!pdfUrl
       },
       req
     });
@@ -395,10 +383,10 @@ exports.approveApplication = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       message: 'Certificate approved and issued successfully',
-      data: { 
+      data: {
         certificate: finalCertificate,
         certificateNo,
-        pdfGenerated: !!pdfUrl
+        characterCertificateNo: isCombined ? characterCertificateNo : undefined,
       }
     });
   } catch (error) {
@@ -518,44 +506,35 @@ exports.downloadCertificate = async (req, res, next) => {
       return next(new AppError('Certificate not yet issued', 400));
     }
 
-    if (!certificate.pdfUrl) {
-      return next(new AppError('Certificate PDF not available', 404));
+    const variant =
+      String(req.query.variant || '').toLowerCase() === 'character'
+        ? 'character'
+        : 'primary';
+
+    const isCharacterDownload =
+      variant === 'character' && certificate.type === 'CLC_CHARACTER';
+
+    if (variant === 'character' && certificate.type !== 'CLC_CHARACTER') {
+      return next(new AppError('Character download is only available for CLC + Character applications', 400));
     }
 
-    // Try to serve from temp directory first
-    const fs = require('fs');
-    const path = require('path');
-    const filePath = path.join(__dirname, '../../temp/certificates', `certificate_${id}.pdf`);
+    const attachmentName = isCharacterDownload
+      ? `${certificate.characterCertificateNo || 'character-certificate'}.pdf`
+      : `${certificate.certificateNo || 'certificate'}.pdf`;
 
-    if (fs.existsSync(filePath)) {
-      // File exists in temp directory
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${certificate.certificateNo || 'certificate'}.pdf"`);
-      
-      const stream = fs.createReadStream(filePath);
-      stream.on('error', (err) => next(err));
-      stream.pipe(res);
-    } else {
-      // File not in temp, return pdfUrl for frontend to download
-      // This handles cloud storage URLs (R2, S3, etc.)
-      console.log(`PDF file not in temp, returning URL: ${certificate.pdfUrl}`);
-      
-      // If pdfUrl is a full URL, redirect to it
-      if (certificate.pdfUrl.startsWith('http')) {
-        return res.redirect(certificate.pdfUrl);
-      }
-      
-      // Otherwise return the URL in JSON
-      return res.status(200).json({
-        status: 'success',
-        message: 'Certificate PDF URL',
-        data: {
-          certificateNo: certificate.certificateNo,
-          pdfUrl: certificate.pdfUrl,
-          downloadUrl: `${req.protocol}://${req.get('host')}${certificate.pdfUrl}`
-        }
-      });
+    let pdfBuffer;
+    try {
+      pdfBuffer = await renderCertificatePdfBuffer(id, isCharacterDownload ? 'character' : 'primary');
+    } catch (err) {
+      return next(err);
     }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${attachmentName}"`
+    );
+    return res.send(pdfBuffer);
   } catch (error) {
     console.error('Download Certificate Error:', error);
     next(error);

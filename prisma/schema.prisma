@@ -293,6 +293,7 @@ model CertificateRequest {
   pdfUrl         String?
   appliedAt      DateTime          @default(now())
   certificateNo  String?           @unique
+  characterCertificateNo String? @unique
   character      String?
   collegeRoll    String?
   courseName     String
@@ -382,6 +383,7 @@ enum CertificateType {
   BONAFIDE
   CLC
   CHARACTER
+  CLC_CHARACTER
 }
 
 enum CertificateStatus {

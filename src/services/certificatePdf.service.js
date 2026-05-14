@@ -57,33 +57,62 @@ function sessionEndYear(session) {
 }
 
 /**
- * Generate certificate PDF using Puppeteer
- * @param {String} certificateId - Certificate request ID
- * @returns {Object} File path, URL, and buffer
+ * Render certificate PDF in memory for download/print.
+ * Does not read or write pdfUrl / characterPdfUrl in the database.
+ *
+ * @param {string} certificateId
+ * @param {'primary'|'character'} variant For CLC_CHARACTER: primary = CLC, character = Character
+ * @returns {Promise<Buffer>}
  */
-exports.generateCertificatePDF = async (certificateId) => {
+exports.renderCertificatePdfBuffer = async (certificateId, variant = 'primary') => {
   const certificate = await prisma.certificateRequest.findUnique({
-    where: { id: certificateId }
+    where: { id: certificateId },
   });
 
   if (!certificate) {
     throw new AppError('Certificate not found', 404);
   }
-
-  if (certificate.status !== 'APPROVED' && certificate.status !== 'PENDING') {
-    throw new AppError('Certificate cannot be issued in current status', 400);
+  if (certificate.status !== 'ISSUED') {
+    throw new AppError('Certificate not yet issued', 400);
   }
 
-  if (!certificate.certificateNo) {
-    throw new AppError('Certificate number must be generated before PDF creation', 400);
+  const v = String(variant).toLowerCase() === 'character' ? 'character' : 'primary';
+
+  if (v === 'character' && certificate.type !== 'CLC_CHARACTER') {
+    throw new AppError('Character download is only available for CLC + Character applications', 400);
   }
 
   let htmlContent;
-  if (certificate.type === 'CLC') {
+
+  if (certificate.type === 'CLC_CHARACTER') {
+    if (!certificate.certificateNo) {
+      throw new AppError('Certificate number must exist before download', 400);
+    }
+    if (v === 'character') {
+      if (!certificate.characterCertificateNo) {
+        throw new AppError('Character certificate number must exist before download', 400);
+      }
+      htmlContent = generateCharacterTemplate({
+        ...certificate,
+        certificateNo: certificate.characterCertificateNo,
+      });
+    } else {
+      htmlContent = generateCLCTemplate(certificate);
+    }
+  } else if (certificate.type === 'CLC') {
+    if (!certificate.certificateNo) {
+      throw new AppError('Certificate number must exist before download', 400);
+    }
     htmlContent = generateCLCTemplate(certificate);
   } else if (certificate.type === 'BONAFIDE') {
+    if (!certificate.certificateNo) {
+      throw new AppError('Certificate number must exist before download', 400);
+    }
     htmlContent = generateBonafideTemplate(certificate);
   } else if (certificate.type === 'CHARACTER') {
+    if (!certificate.certificateNo) {
+      throw new AppError('Certificate number must exist before download', 400);
+    }
     htmlContent = generateCharacterTemplate(certificate);
   } else {
     throw new AppError('Invalid certificate type', 400);
@@ -91,31 +120,22 @@ exports.generateCertificatePDF = async (certificateId) => {
 
   const browser = await puppeteer.launch({
     headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
-  const page = await browser.newPage();
-  await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-
-  const pdfBuffer = await page.pdf({
-    format: 'A4',
-    printBackground: true,
-    margin: { top: '0', right: '0', bottom: '0', left: '0' }
-  });
-
-  await browser.close();
-
-  const tempDir = path.join(__dirname, '../../temp/certificates');
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+    });
+    await page.close();
+    return Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
+  } finally {
+    await browser.close();
   }
-
-  const filePath = path.join(tempDir, `certificate_${certificateId}.pdf`);
-  fs.writeFileSync(filePath, pdfBuffer);
-
-  const pdfUrl = `/certificates/certificate_${certificateId}.pdf`;
-
-  return { filePath, pdfUrl, buffer: pdfBuffer };
 };
 
 const LOGO_PATH = path.join(__dirname, '../utils/SSDM_logo.png');
