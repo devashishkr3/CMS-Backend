@@ -65,8 +65,8 @@ router.post('/:paymentId/generate-link', generatePaymentLink);
 router.post('/:paymentId/student-generate-link', studentGeneratePaymentLink);
 
 // Admin routes
-router.get('/', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getAllPayments);
-router.get('/stats', restrictTo('ADMIN', 'ACCOUNTANT', 'HOD'), getPaymentStats);
+router.get('/', getAllPayments);
+router.get('/stats', getPaymentStats);
 router.get('/dcr1-report',
   //  restrictTo('ADMIN', 'ACCOUNTANT'),
     getDCR1Report);
