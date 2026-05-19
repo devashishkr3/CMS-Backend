@@ -21,6 +21,10 @@ exports.VALID_DEPARTMENTS = [
   'ECONOMICS',
   'HOME SCIENCE',
   'SANSKRIT',
+  'PHILOSOPHY',
+  'PA',
+  'AIAS',
+  'LSW'
 ];
 
 // Valid Course Names
@@ -50,7 +54,7 @@ exports.VALID_SESSIONS = [
 
 // Certificate Fees
 exports.CERTIFICATE_FEES = {
-  BONAFIDE: 200,
+  BONAFIDE: 100,
   CLC: 500,
   CHARACTER: 300
 };

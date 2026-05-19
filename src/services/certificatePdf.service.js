@@ -143,6 +143,7 @@ function generateCLCTemplate(data) {
   const characterStatus = data.character ? String(data.character).trim().toUpperCase() : 'GOOD';
   const examName = data.courseName ? String(data.courseName).trim() : '……………………';
   const mother = data.motherName ? String(data.motherName).trim() : '';
+  const department = data.departmentName ? String(data.departmentName).trim() : ''
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -191,7 +192,6 @@ function generateCLCTemplate(data) {
 <body>
   <div class="page">
     <div class="logo-row">${logoImgTag()}</div>
-    <p class="hi">संत संध्या दास महिला कॉलेज, बाढ़ (पटना)</p>
     <p class="en">Sant Sandhya Das Mahila College</p>
     <p class="addr">Barh, Patna - 803213, Bihar</p>
     <p class="affil">(Affiliated to Patliputra University, Patna)</p>
@@ -209,7 +209,7 @@ function generateCLCTemplate(data) {
       <p>
         Certified that Miss ${dottedVal(data.name)}, Son/Daughter of Mr ${dottedVal(data.fatherName)} and Mrs.
         ${dottedVal(mother)} bearing College Roll No ${dottedVal(data.collegeRoll)} has been a student of class
-        ${dottedVal(data.courseName)} in this College in the Session ${dottedVal(data.session)} His/Her University
+        ${dottedVal(data.courseName)} Hons ${dottedVal(department)} ${dottedVal("PART-3")} in this College in the Session ${dottedVal(data.session)} His/Her University
         Registration No is ${dottedVal(data.registrationNo)} and University Roll No is ${dottedVal(data.universityRoll)}.
         As per the record in the college register his/her date of birth is ${dottedVal(dobStr)} He/She has Passed
         ${dottedVal(examName)} examination held in the ${dottedVal(examDatePhrase(data))} and secured
@@ -425,7 +425,6 @@ function generateCharacterTemplate(data) {
       <div class="logo-row">
         ${logoImgTag()}
       </div>
-      <p class="hi">संत संध्या दास महिला कॉलेज, बाढ़ (पटना)</p>
       <p class="en">Sant Sandhya Das Mahila College</p>
       <p class="addr">Barh, Patna - 803213, Bihar</p>
       <p class="affil">(Affiliated to Patliputra University, Patna)</p>
