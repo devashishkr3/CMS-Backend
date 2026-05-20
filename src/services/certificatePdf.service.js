@@ -436,6 +436,8 @@ function generateCharacterTemplate(data) {
 </head>
 <body>
   <div class="page">
+  <br>
+  <br>
     <div class="bar"></div>
     <div class="inner">
       <div class="logo-row">

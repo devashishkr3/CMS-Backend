@@ -18,7 +18,8 @@ const {
   updateApplicationStatus,
   approveApplication,
   rejectApplication,
-  downloadCertificate
+  downloadCharacterCertificate,
+  downloadCLCCertificate
 } = require('../controllers/certificate.controller');
 
 // STUDENT ROUTES
@@ -101,13 +102,17 @@ router.patch('/admin/:id/reject',
 router.get('/:id/download',
   protect,
   restrictTo('ADMIN', 'STUDENT'),
-  downloadCertificate
+  downloadCLCCertificate
 );
 
 router.get('/admin/:id/download', 
   protect, 
   restrictTo('ADMIN', 'STUDENT'),
-  downloadCertificate
+  downloadCLCCertificate
+);
+
+router.get('/:id/download-character',
+  downloadCharacterCertificate
 );
 
 module.exports = router;

@@ -509,12 +509,12 @@ exports.updateApplicationStatus = async (req, res, next) => {
   }
 };
 
+
 /**
- * ADMIN/STUDENT: Download CLC + Character Certificate
- * Access: ADMIN, STUDENT (own certificates)
+ * ADMIN/STUDENT: Download CLC Certificate
+ * Access: ADMIN, STUDENT (own certificate)
  */
-const archiver = require("archiver");
-exports.downloadCertificate = async (req, res, next) => {
+exports.downloadCLCCertificate = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -531,108 +531,244 @@ exports.downloadCertificate = async (req, res, next) => {
       return next(new AppError("Certificate not yet issued", 400));
     }
 
-    const clcPdfUrl = certificate.pdfUrl; // CLC
-    const characterPdfUrl = certificate.remarks; // Character
-
-    if (!clcPdfUrl && !characterPdfUrl) {
-      return next(new AppError("No certificate PDFs available", 404));
+    if (!certificate.pdfUrl) {
+      return next(new AppError("CLC Certificate PDF not available", 404));
     }
 
     const fs = require("fs");
     const path = require("path");
 
-    // const clcPath = path.join(
-    //   __dirname,
-    //   "../../temp/certificates",
-    //   `certificate_${id}.pdf`
-    // );
-
-    //new paths for dual certificates
-    const clcPath = path.join(
+    const filePath = path.join(
       __dirname,
       "../../temp/certificates",
-      `certificate_${id}_CLC.pdf`,
+      `certificate_${id}_CLC.pdf`
     );
 
-    const characterPath = path.join(
-      __dirname,
-      "../../temp/certificates",
-      `certificate_${id}_CHARACTER.pdf`,
-    );
+    // ==============================
+    // LOCAL FILE
+    // ==============================
+    if (fs.existsSync(filePath)) {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${certificate.certificateNo || "CLC"}.pdf"`
+      );
 
-    const clcExists = fs.existsSync(clcPath);
-    const characterExists = fs.existsSync(characterPath);
-
-    // ====================================================
-    // CASE 1 → LOCAL FILE EXISTS (Stream or ZIP)
-    // ====================================================
-
-    if (clcExists || characterExists) {
-      // If both exist → ZIP
-      if (clcExists && characterExists) {
-        res.setHeader("Content-Type", "application/zip");
-        res.setHeader(
-          "Content-Disposition",
-          `attachment; filename="${certificate.certificateNo}_documents.zip"`,
-        );
-
-        const archive = archiver("zip", { zlib: { level: 9 } });
-        archive.pipe(res);
-
-        archive.file(clcPath, { name: "CLC.pdf" });
-        archive.file(characterPath, { name: "Character.pdf" });
-
-        await archive.finalize();
-        return;
-      }
-
-      // If only CLC exists → stream single PDF
-      if (clcExists) {
-        res.setHeader("Content-Type", "application/pdf");
-        res.setHeader(
-          "Content-Disposition",
-          `attachment; filename="${certificate.certificateNo}_CLC.pdf"`,
-        );
-
-        return fs.createReadStream(clcPath).pipe(res);
-      }
-
-      // If only Character exists → stream single PDF
-      if (characterExists) {
-        res.setHeader("Content-Type", "application/pdf");
-        res.setHeader(
-          "Content-Disposition",
-          `attachment; filename="${certificate.certificateNo}_Character.pdf"`,
-        );
-
-        return fs.createReadStream(characterPath).pipe(res);
-      }
+      return fs.createReadStream(filePath).pipe(res);
     }
 
-    // ====================================================
-    // CASE 2 → CLOUD STORAGE URL
-    // ====================================================
-
-    // If only CLC exists in cloud
-    if (clcPdfUrl && !characterPdfUrl) {
-      if (clcPdfUrl.startsWith("http")) {
-        return res.redirect(clcPdfUrl);
-      }
+    // ==============================
+    // CLOUD URL
+    // ==============================
+    if (certificate.pdfUrl.startsWith("http")) {
+      return res.redirect(certificate.pdfUrl);
     }
 
-    // If both cloud URLs exist → return JSON
     return res.status(200).json({
       status: "success",
-      message: "Certificate download URLs",
       data: {
         certificateNo: certificate.certificateNo,
-        clcPdfUrl: clcPdfUrl || null,
-        characterPdfUrl: characterPdfUrl || null,
+        pdfUrl: certificate.pdfUrl,
       },
     });
+
   } catch (error) {
-    console.error("Download Certificate Error:", error);
-    // await browser.close();
+    console.error("Download CLC Error:", error);
     next(error);
   }
 };
+
+/**
+ * ADMIN/STUDENT: Download Character Certificate
+ * Access: ADMIN, STUDENT (own certificate)
+ */
+exports.downloadCharacterCertificate = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const certificate = await prisma.certificateRequest.findUnique({
+      where: { id },
+    });
+
+    if (!certificate) {
+      return next(new AppError("Certificate not found", 404));
+    }
+
+    if (certificate.status !== "ISSUED") {
+      return next(new AppError("Certificate not yet issued", 400));
+    }
+
+    if (!certificate.remarks) {
+      return next(new AppError("Character Certificate PDF not available", 404));
+    }
+
+    const fs = require("fs");
+    const path = require("path");
+
+    const filePath = path.join(
+      __dirname,
+      "../../temp/certificates",
+      `certificate_${id}_CHARACTER.pdf`
+    );
+
+    // ==============================
+    // LOCAL FILE
+    // ==============================
+    if (fs.existsSync(filePath)) {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="Character_${certificate.certificateNo}.pdf"`
+      );
+
+      return fs.createReadStream(filePath).pipe(res);
+    }
+
+    // ==============================
+    // CLOUD URL
+    // ==============================
+    if (certificate.remarks.startsWith("http")) {
+      return res.redirect(certificate.remarks);
+    }
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        certificateNo: certificate.certificateNo,
+        pdfUrl: certificate.remarks,
+      },
+    });
+
+  } catch (error) {
+    console.error("Download Character Error:", error);
+    next(error);
+  }
+};
+
+/**
+ * ADMIN/STUDENT: Download CLC + Character Certificate
+ * Access: ADMIN, STUDENT (own certificates)
+ */
+// const archiver = require("archiver");
+// exports.downloadCertificate = async (req, res, next) => {
+//   try {
+//     const { id } = req.params;
+
+//     const certificate = await prisma.certificateRequest.findUnique({
+//       where: { id },
+//       include: { payment: true },
+//     });
+
+//     if (!certificate) {
+//       return next(new AppError("Certificate not found", 404));
+//     }
+
+//     if (certificate.status !== "ISSUED") {
+//       return next(new AppError("Certificate not yet issued", 400));
+//     }
+
+//     const clcPdfUrl = certificate.pdfUrl; // CLC
+//     const characterPdfUrl = certificate.remarks; // Character
+
+//     if (!clcPdfUrl && !characterPdfUrl) {
+//       return next(new AppError("No certificate PDFs available", 404));
+//     }
+
+//     const fs = require("fs");
+//     const path = require("path");
+
+//     // const clcPath = path.join(
+//     //   __dirname,
+//     //   "../../temp/certificates",
+//     //   `certificate_${id}.pdf`
+//     // );
+
+//     //new paths for dual certificates
+//     const clcPath = path.join(
+//       __dirname,
+//       "../../temp/certificates",
+//       `certificate_${id}_CLC.pdf`,
+//     );
+
+//     const characterPath = path.join(
+//       __dirname,
+//       "../../temp/certificates",
+//       `certificate_${id}_CHARACTER.pdf`,
+//     );
+
+//     const clcExists = fs.existsSync(clcPath);
+//     const characterExists = fs.existsSync(characterPath);
+
+//     // ====================================================
+//     // CASE 1 → LOCAL FILE EXISTS (Stream or ZIP)
+//     // ====================================================
+
+//     if (clcExists || characterExists) {
+//       // If both exist → ZIP
+//       if (clcExists && characterExists) {
+//         res.setHeader("Content-Type", "application/zip");
+//         res.setHeader(
+//           "Content-Disposition",
+//           `attachment; filename="${certificate.certificateNo}_documents.zip"`,
+//         );
+
+//         const archive = archiver("zip", { zlib: { level: 9 } });
+//         archive.pipe(res);
+
+//         archive.file(clcPath, { name: "CLC.pdf" });
+//         archive.file(characterPath, { name: "Character.pdf" });
+
+//         await archive.finalize();
+//         return;
+//       }
+
+//       // If only CLC exists → stream single PDF
+//       if (clcExists) {
+//         res.setHeader("Content-Type", "application/pdf");
+//         res.setHeader(
+//           "Content-Disposition",
+//           `attachment; filename="${certificate.certificateNo}_CLC.pdf"`,
+//         );
+
+//         return fs.createReadStream(clcPath).pipe(res);
+//       }
+
+//       // If only Character exists → stream single PDF
+//       if (characterExists) {
+//         res.setHeader("Content-Type", "application/pdf");
+//         res.setHeader(
+//           "Content-Disposition",
+//           `attachment; filename="${certificate.certificateNo}_Character.pdf"`,
+//         );
+
+//         return fs.createReadStream(characterPath).pipe(res);
+//       }
+//     }
+
+//     // ====================================================
+//     // CASE 2 → CLOUD STORAGE URL
+//     // ====================================================
+
+//     // If only CLC exists in cloud
+//     if (clcPdfUrl && !characterPdfUrl) {
+//       if (clcPdfUrl.startsWith("http")) {
+//         return res.redirect(clcPdfUrl);
+//       }
+//     }
+
+//     // If both cloud URLs exist → return JSON
+//     return res.status(200).json({
+//       status: "success",
+//       message: "Certificate download URLs",
+//       data: {
+//         certificateNo: certificate.certificateNo,
+//         clcPdfUrl: clcPdfUrl || null,
+//         characterPdfUrl: characterPdfUrl || null,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Download Certificate Error:", error);
+//     // await browser.close();
+//     next(error);
+//   }
+// };
