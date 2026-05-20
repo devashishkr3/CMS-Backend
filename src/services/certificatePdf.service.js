@@ -61,10 +61,13 @@ function sessionEndYear(session) {
  * @param {String} certificateId - Certificate request ID
  * @returns {Object} File path, URL, and buffer
  */
-exports.generateCertificatePDF = async (certificateId) => {
+exports.generateCertificatePDF = async (certificateId, options = {}) => {
   const certificate = await prisma.certificateRequest.findUnique({
     where: { id: certificateId }
   });
+
+  const type = options.type || certificate.type;
+  const customCertificateNo = options.certificateNo || certificate.certificateNo;
 
   if (!certificate) {
     throw new AppError('Certificate not found', 404);
@@ -74,17 +77,30 @@ exports.generateCertificatePDF = async (certificateId) => {
     throw new AppError('Certificate cannot be issued in current status', 400);
   }
 
-  if (!certificate.certificateNo) {
-    throw new AppError('Certificate number must be generated before PDF creation', 400);
+  // if (!certificate.certificateNo) {
+  //   throw new AppError('Certificate number must be generated before PDF creation', 400);
+  // }
+
+  if (!customCertificateNo) {
+      throw new AppError('Certificate number must be provided before PDF creation', 400);
   }
 
   let htmlContent;
-  if (certificate.type === 'CLC') {
-    htmlContent = generateCLCTemplate(certificate);
-  } else if (certificate.type === 'BONAFIDE') {
-    htmlContent = generateBonafideTemplate(certificate);
-  } else if (certificate.type === 'CHARACTER') {
-    htmlContent = generateCharacterTemplate(certificate);
+  if (type === 'CLC') {
+    htmlContent = generateCLCTemplate({
+  ...certificate,
+  certificateNo: customCertificateNo
+});
+  } else if (type === 'BONAFIDE') {
+    htmlContent = generateBonafideTemplate({
+  ...certificate,
+  certificateNo: customCertificateNo
+});
+  } else if (type === 'CHARACTER') {
+    htmlContent = generateCharacterTemplate({
+  ...certificate,
+  certificateNo: customCertificateNo
+});
   } else {
     throw new AppError('Invalid certificate type', 400);
   }
@@ -110,10 +126,10 @@ exports.generateCertificatePDF = async (certificateId) => {
     fs.mkdirSync(tempDir, { recursive: true });
   }
 
-  const filePath = path.join(tempDir, `certificate_${certificateId}.pdf`);
+  const filePath = path.join(tempDir, `certificate_${certificateId}_${type}.pdf`);
   fs.writeFileSync(filePath, pdfBuffer);
 
-  const pdfUrl = `/certificates/certificate_${certificateId}.pdf`;
+  const pdfUrl = `/certificates/certificate_${certificateId}_${type}.pdf`;
 
   return { filePath, pdfUrl, buffer: pdfBuffer };
 };
@@ -438,11 +454,21 @@ function generateCharacterTemplate(data) {
         <span>Date :- ${escapeHtml(dateStr)}</span>
       </div>
 
-      <p class="line">This is to certify that Miss. <span class="fill">${escapeHtml(data.name)}</span></p>
-      <p class="line">Son/Daughter of Mr. <span class="fill">${escapeHtml(data.fatherName)}</span></p>
-      <p class="line">is/was a student of the class <span class="fill">${escapeHtml(data.courseName)}</span> degree course bearing roll</p>
-      <p class="line">number <span class="fill">${escapeHtml(rollDisplay)}</span> in the session from <span class="fill">${escapeHtml(data.session)}</span>.</p>
-      <p class="line">During the period of his/her study in this college his/her character is/was <span class="fill">${escapeHtml(char)}</span>.</p>
+      <br>
+
+      <p class="line">
+      This is to certify that Miss. 
+      <span class="fill">${escapeHtml(data.name)}</span>
+      Son/Daughter of Mr. 
+      <span class="fill">${escapeHtml(data.fatherName)}</span>
+      is/was a student of the class 
+      <span class="fill">${escapeHtml(data.courseName)} (HONS) ${escapeHtml(data.departmentName)} PART-3 </span>
+      degree course bearing roll number 
+      <span class="fill">${escapeHtml(rollDisplay)}</span>
+      in the session from 
+      <span class="fill">${escapeHtml(data.session)}</span>.
+      During the period of his/her study in this college his/her character is/was 
+      <span class="fill">${escapeHtml(char)}</span>.</p>
 
       <br>
 
