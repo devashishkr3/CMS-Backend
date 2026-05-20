@@ -335,21 +335,10 @@ exports.updateApplication = async (req, res, next) => {
   }
 };
 
-/**
- * ADMIN: Approve application
- * Access: ADMIN only
- *
- * CORRECT FLOW:
- * 1. Generate certificateNo
- * 2. Save certificateNo to DB FIRST
- * 3. Then generate PDF (which requires certificateNo)
- * 4. Update status to ISSUED with pdfUrl
- */
 exports.approveApplication = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Step 1: Fetch certificate with payment
     const certificate = await prisma.certificateRequest.findUnique({
       where: { id },
       include: { payment: true },
@@ -359,14 +348,12 @@ exports.approveApplication = async (req, res, next) => {
       return next(new AppError("Certificate application not found", 404));
     }
 
-    // Step 2: Validate payment status
     if (!certificate.payment || certificate.payment.status !== "SUCCESS") {
       return next(
         new AppError("Payment not completed for this certificate", 400),
       );
     }
 
-    // Step 3: Check if already issued
     if (certificate.status === "ISSUED") {
       return next(new AppError("Certificate already issued", 400));
     }
@@ -375,114 +362,68 @@ exports.approveApplication = async (req, res, next) => {
       return next(new AppError("Cannot approve rejected application", 400));
     }
 
-    // Step 4: Generate certificate number FIRST
-    const certificateNo = await generateCertificateNo(certificate.type);
-    // console.log(`Generated certificate number: ${certificateNo}`);
+    // ✅ 1️⃣ Generate CLC certificate number
+    const clcCertificateNo = await generateCertificateNo("CLC");
 
-    // Step 5: Save certificateNo to database BEFORE PDF generation
-    const updatedWithCertNo = await prisma.certificateRequest.update({
+    // Save certificateNo first
+    await prisma.certificateRequest.update({
       where: { id },
       data: {
-        certificateNo,
-        status: "APPROVED", // Set to APPROVED first
-        issuedAt: new Date(), // Set issued date
+        certificateNo: clcCertificateNo,
+        status: "APPROVED",
+        issuedAt: new Date(),
       },
     });
 
-    // console.log(`Certificate number saved to DB: ${updatedWithCertNo.certificateNo}`);
-
-    // Step 6: Now generate PDF (certificateNo exists in DB now)
-    // let pdfUrl = null;
-    // try {
-    //   const { pdfUrl: generatedPdfUrl } = await generateCertificatePDF(id);
-    //   // const { remarks : pdfUrl} = await generateCertificatePDF(id);
-    //   pdfUrl = generatedPdfUrl;
-    //   // console.log(`PDF generated successfully: ${pdfUrl}`);
-    // } catch (pdfError) {
-    //   // console.error('PDF generation failed:', pdfError);
-    //   // Continue anyway - certificate is approved, PDF can be regenerated later
-    //   pdfUrl = null;
-    // }
-
-    // ================================
-    // GENERATE CLC + CHARACTER BOTH
-    // ================================
     let clcPdfUrl = null;
     let characterPdfUrl = null;
 
     try {
-      // 1️⃣ Generate CLC PDF (type already CLC)
-      const { pdfUrl: generatedClcPdfUrl } = await generateCertificatePDF(id);
-
-      clcPdfUrl = generatedClcPdfUrl;
-
-      // 2️⃣ Generate Character certificate number
-      const characterCertificateNo = await generateCertificateNo("CHARACTER");
-
-      // 3️⃣ Temporarily update record to CHARACTER
-      await prisma.certificateRequest.update({
-        where: { id },
-        data: {
-          type: "CHARACTER",
-          certificateNo: characterCertificateNo,
-        },
+      // ✅ 2️⃣ Generate CLC PDF (uses certificateNo from DB)
+      const { pdfUrl } = await generateCertificatePDF(id, {
+        type: "CLC",
+        certificateNo: clcCertificateNo,
       });
 
-      // 4️⃣ Generate Character PDF
-      const { pdfUrl: generatedCharacterPdfUrl } =
-        await generateCertificatePDF(id);
+      clcPdfUrl = pdfUrl;
 
-      characterPdfUrl = generatedCharacterPdfUrl;
+      // ✅ 3️⃣ Generate Character certificateNo (NOT SAVED IN DB)
+      const characterCertificateNo = await generateCertificateNo("CHARACTER");
+
+      // ✅ 4️⃣ Generate Character PDF (pass certificateNo manually)
+      const { pdfUrl: charPdf } = await generateCertificatePDF(id, {
+        type: "CHARACTER",
+        certificateNo: characterCertificateNo,
+      });
+
+      characterPdfUrl = charPdf;
     } catch (err) {
       console.error("Dual certificate generation error:", err);
     }
 
-    // Step 7: Final update with PDF URL and ISSUED status
-    // const finalCertificate = await prisma.certificateRequest.update({
-    //   where: { id },
-    //   data: {
-    //     status: "ISSUED",
-    //     pdfUrl: pdfUrl || certificate.pdfUrl, // Keep old PDF if regeneration failed
-    //   },
-    //   include: { payment: true },
-    // });
-
+    // ✅ 5️⃣ FINAL single DB update
     const finalCertificate = await prisma.certificateRequest.update({
       where: { id },
       data: {
-        type: "CLC", // restore original type
         status: "ISSUED",
-        pdfUrl: clcPdfUrl || certificate.pdfUrl,
-        remark: characterPdfUrl || null,
+        pdfUrl: clcPdfUrl,
+        remarks: characterPdfUrl,
       },
       include: { payment: true },
     });
 
-    // Step 8: Log audit
-    await logAudit({
-      userId: req.user.id,
-      action: "APPROVE_CERTIFICATE",
-      entity: "CertificateRequest",
-      entityId: id,
-      payload: {
-        certificateNo,
-        type: certificate.type,
-        pdfGenerated: !!pdfUrl,
-      },
-      req,
-    });
-
     res.status(200).json({
       status: "success",
-      message: "Certificate approved and issued successfully",
+      message: "CLC + Character certificate issued successfully",
       data: {
         certificate: finalCertificate,
-        certificateNo,
-        pdfGenerated: !!pdfUrl,
+        clcCertificateNo,
+        characterPdfUrl,
       },
     });
   } catch (error) {
     console.error("Approve Certificate Error:", error);
+    // await browser.close();
     next(error);
   }
 };
@@ -572,6 +513,7 @@ exports.updateApplicationStatus = async (req, res, next) => {
  * ADMIN/STUDENT: Download CLC + Character Certificate
  * Access: ADMIN, STUDENT (own certificates)
  */
+const archiver = require("archiver");
 exports.downloadCertificate = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -589,8 +531,8 @@ exports.downloadCertificate = async (req, res, next) => {
       return next(new AppError("Certificate not yet issued", 400));
     }
 
-    const clcPdfUrl = certificate.pdfUrl;       // CLC
-    const characterPdfUrl = certificate.remark; // Character
+    const clcPdfUrl = certificate.pdfUrl; // CLC
+    const characterPdfUrl = certificate.remarks; // Character
 
     if (!clcPdfUrl && !characterPdfUrl) {
       return next(new AppError("No certificate PDFs available", 404));
@@ -599,16 +541,23 @@ exports.downloadCertificate = async (req, res, next) => {
     const fs = require("fs");
     const path = require("path");
 
+    // const clcPath = path.join(
+    //   __dirname,
+    //   "../../temp/certificates",
+    //   `certificate_${id}.pdf`
+    // );
+
+    //new paths for dual certificates
     const clcPath = path.join(
       __dirname,
       "../../temp/certificates",
-      `certificate_${id}.pdf`
+      `certificate_${id}_CLC.pdf`,
     );
 
     const characterPath = path.join(
       __dirname,
       "../../temp/certificates",
-      `certificate_${id}_CHARACTER.pdf`
+      `certificate_${id}_CHARACTER.pdf`,
     );
 
     const clcExists = fs.existsSync(clcPath);
@@ -621,12 +570,10 @@ exports.downloadCertificate = async (req, res, next) => {
     if (clcExists || characterExists) {
       // If both exist → ZIP
       if (clcExists && characterExists) {
-        const archiver = require("archiver");
-
         res.setHeader("Content-Type", "application/zip");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${certificate.certificateNo}_documents.zip"`
+          `attachment; filename="${certificate.certificateNo}_documents.zip"`,
         );
 
         const archive = archiver("zip", { zlib: { level: 9 } });
@@ -644,7 +591,7 @@ exports.downloadCertificate = async (req, res, next) => {
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${certificate.certificateNo}_CLC.pdf"`
+          `attachment; filename="${certificate.certificateNo}_CLC.pdf"`,
         );
 
         return fs.createReadStream(clcPath).pipe(res);
@@ -655,7 +602,7 @@ exports.downloadCertificate = async (req, res, next) => {
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${certificate.certificateNo}_Character.pdf"`
+          `attachment; filename="${certificate.certificateNo}_Character.pdf"`,
         );
 
         return fs.createReadStream(characterPath).pipe(res);
@@ -683,90 +630,9 @@ exports.downloadCertificate = async (req, res, next) => {
         characterPdfUrl: characterPdfUrl || null,
       },
     });
-
   } catch (error) {
     console.error("Download Certificate Error:", error);
+    // await browser.close();
     next(error);
   }
 };
-
-/**
- * ADMIN/STUDENT: Download certificate
- * Access: ADMIN, STUDENT (own certificates)
- */
-// exports.downloadCertificate = async (req, res, next) => {
-//   try {
-//     const { id } = req.params;
-
-//     const certificate = await prisma.certificateRequest.findUnique({
-//       where: { id },
-//       include: { payment: true },
-//     });
-
-//     if (!certificate) {
-//       return next(new AppError("Certificate not found", 404));
-//     }
-
-//     // For students, verify ownership
-//     if (req.user.role !== "ADMIN") {
-//       // Check if student owns this certificate
-//       // Add your student ownership verification logic here
-//       // if (certificate.studentId !== req.user.id) {
-//       //   return next(new AppError('Unauthorized access', 403));
-//       // }
-//     }
-
-//     if (certificate.status !== "ISSUED") {
-//       return next(new AppError("Certificate not yet issued", 400));
-//     }
-
-//     if (!certificate.pdfUrl) {
-//       return next(new AppError("Certificate PDF not available", 404));
-//     }
-
-//     // Try to serve from temp directory first
-//     const fs = require("fs");
-//     const path = require("path");
-//     const filePath = path.join(
-//       __dirname,
-//       "../../temp/certificates",
-//       `certificate_${id}.pdf`,
-//     );
-
-//     if (fs.existsSync(filePath)) {
-//       // File exists in temp directory
-//       res.setHeader("Content-Type", "application/pdf");
-//       res.setHeader(
-//         "Content-Disposition",
-//         `attachment; filename="${certificate.certificateNo || "certificate"}.pdf"`,
-//       );
-
-//       const stream = fs.createReadStream(filePath);
-//       stream.on("error", (err) => next(err));
-//       stream.pipe(res);
-//     } else {
-//       // File not in temp, return pdfUrl for frontend to download
-//       // This handles cloud storage URLs (R2, S3, etc.)
-//       console.log(`PDF file not in temp, returning URL: ${certificate.pdfUrl}`);
-
-//       // If pdfUrl is a full URL, redirect to it
-//       if (certificate.pdfUrl.startsWith("http")) {
-//         return res.redirect(certificate.pdfUrl);
-//       }
-
-//       // Otherwise return the URL in JSON
-//       return res.status(200).json({
-//         status: "success",
-//         message: "Certificate PDF URL",
-//         data: {
-//           certificateNo: certificate.certificateNo,
-//           pdfUrl: certificate.pdfUrl,
-//           downloadUrl: `${req.protocol}://${req.get("host")}${certificate.pdfUrl}`,
-//         },
-//       });
-//     }
-//   } catch (error) {
-//     console.error("Download Certificate Error:", error);
-//     next(error);
-//   }
-// };
