@@ -50,6 +50,8 @@ exports.VALID_SEMESTERS = [
 // Valid Sessions
 exports.VALID_SESSIONS = [
   '2022-2025',
+  '2023-2027',
+  '2024-2028'
 ];
 
 // Certificate Fees

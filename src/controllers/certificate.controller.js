@@ -462,7 +462,8 @@ exports.approveApplication = async (req, res, next) => {
 
         clcPdfUrl = pdfUrl;
 
-        const characterCertificateNo = await generateCertificateNo("CHARACTER");
+        // ✅ Derive Character certificate number from CLC certificate number
+        const characterCertificateNo = clcCertificateNo.replace("/CLC/", "/CHARACTER/");
 
         const { pdfUrl: charPdf } = await generateCertificatePDF(id, {
           type: "CHARACTER",
