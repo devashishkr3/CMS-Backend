@@ -264,111 +264,510 @@ function generateBonafideTemplate(data) {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Bonafide</title>
+  <title>Bonafide Certificate</title>
+
   <style>
     ${SHARED_PRINT}
-    .page {
+
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+
       width: 210mm;
-      min-height: 297mm;
-      padding: 14mm 16mm 16mm;
+      height: 297mm;
+
+      background: #ffffff;
+    }
+
+    body {
       font-family: Arial, Helvetica, sans-serif;
+
+      color: #000000;
+
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      position: relative;
+
+      width: 210mm;
+      height: 297mm;
+
+      padding: 14mm 16mm 16mm;
+
+      overflow: hidden;
+
       font-size: 12pt;
       line-height: 1.5;
-      color: #000;
     }
+
     .top-bar {
+      width: 100%;
+
       display: grid;
+
       grid-template-columns: 26mm 1fr auto;
+
       align-items: start;
-      gap: 4mm;
+
+      column-gap: 4mm;
+
       margin-bottom: 5mm;
     }
-    .seal {
-      text-align: center; font-size: 9pt; line-height: 1.2;
-    }
-    .seal .est { margin-bottom: 1mm; }
-    .logo-img { width: 20mm; height: 20mm; object-fit: contain; display: block; margin: 0 auto; }
-    .seal-logo { margin-top: 1mm; }
-    .logo-fallback {
-      width: 20mm; height: 20mm; border: 1.5px solid #333; border-radius: 50%; margin: 0 auto;
-    }
-    .head-mid { text-align: center; }
-    .head-mid .main { font-weight: 700; font-size: 15pt; margin: 0; letter-spacing: 0.04em; }
-    .head-mid .sub { font-size: 12pt; margin: 2mm 0 0; }
-    .code { font-size: 11pt; font-weight: 600; padding-top: 2mm; white-space: nowrap; }
-    .recogn {
-      text-align: center; font-size: 9.5pt; margin: 4mm 0 6mm; line-height: 1.35;
-    }
-    .doc-title {
-      text-align: center; font-weight: 700; font-size: 13pt; margin: 0 0 5mm;
-      text-decoration: underline; text-transform: uppercase;
-    }
-    .meta-row { display: flex; justify-content: space-between; font-size: 11.5pt; margin-bottom: 5mm; }
-    .body { text-align: left; font-size: 11.5pt; line-height: 1.65; margin-bottom: 5mm; }
-    .field-val { font-weight: 600; border-bottom: 1px dotted #000; padding: 0 2px; }
-    .details-title { font-size: 11.5pt; margin: 4mm 0 3mm; }
-    .detail-line { font-size: 11.5pt; margin: 2.5mm 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2mm; }
-    .detail-label { min-width: 220px; }
-    .detail-val { flex: 1; border-bottom: 1px dotted #000; min-height: 1.1em; font-weight: 600; }
-    .auth {
-      margin-top: 10mm; margin-left: auto; width: 58%; text-align: left; font-size: 11pt;
-    }
-    .auth h4 { margin: 0 0 4mm; font-size: 11pt; text-decoration: underline; font-weight: 700; }
-    .auth-row { margin: 2.5mm 0; display: flex; gap: 2mm; }
-    .auth-row .k { min-width: 95px; }
-    .auth-row .v { flex: 1; border-bottom: 1px dotted #000; min-height: 1em; }
-  </style>
-</head>
-<body>
-  <div class="page">
-    <div class="top-bar">
-      <div class="seal">
-        <div class="est">स्थापित - 1978</div>
-        ${logoImgTag('seal-logo')}
-      </div>
-      <div class="head-mid">
-        <p class="main">SANT SANDHYA DAS MAHILA COLLEGE</p>
-        <p class="sub">BARH, PATNA</p>
-      </div>
-      <div class="code">COLLEGE CODE : 435</div>
-    </div>
-    <p class="recogn">(Recognised by government of Bihar and affiliated to Patliputra University, Patna in the faculties of arts &amp; science up to degree hons. level)</p>
 
-    <div class="doc-title">Bonafide Certificate</div>
-    <br>
-    <br>
-    <div class="meta-row">
-      <span>Ref no ${dottedVal(data.certificateNo)}</span>
-      <span>Date: ${dottedVal(dateStr)}</span>
+    .seal {
+      width: 26mm;
+
+      text-align: center;
+
+      font-size: 9pt;
+
+      line-height: 1.2;
+    }
+
+    .seal .est {
+      margin-bottom: 1mm;
+
+      white-space: nowrap;
+    }
+
+    .logo-img {
+      display: block;
+
+      width: 20mm;
+      height: 20mm;
+
+      margin: 0 auto;
+
+      object-fit: contain;
+    }
+
+    .seal-logo {
+      margin-top: 1mm;
+    }
+
+    .logo-fallback {
+      width: 20mm;
+      height: 20mm;
+
+      margin: 0 auto;
+
+      border: 1.5px solid #333;
+
+      border-radius: 50%;
+    }
+
+    .head-mid {
+      text-align: center;
+
+      padding-top: 1mm;
+    }
+
+    .head-mid .main {
+      margin: 0;
+
+      font-size: 15pt;
+
+      font-weight: 700;
+
+      letter-spacing: 0.04em;
+
+      line-height: 1.2;
+
+      white-space: nowrap;
+    }
+
+    .head-mid .sub {
+      margin: 2mm 0 0;
+
+      font-size: 12pt;
+
+      line-height: 1.2;
+    }
+
+    .code {
+      padding-top: 2mm;
+
+      font-size: 10.5pt;
+
+      font-weight: 600;
+
+      white-space: nowrap;
+    }
+
+    .recogn {
+      margin: 4mm 0 7mm;
+
+      text-align: center;
+
+      font-size: 9.5pt;
+
+      line-height: 1.35;
+    }
+
+    .doc-title {
+      margin: 0 0 9mm;
+
+      text-align: center;
+
+      font-size: 13pt;
+
+      font-weight: 700;
+
+      line-height: 1.2;
+
+      text-decoration: underline;
+
+      text-transform: uppercase;
+    }
+
+    .meta-row {
+      display: flex;
+
+      justify-content: space-between;
+
+      align-items: center;
+
+      width: 100%;
+
+      margin-bottom: 8mm;
+
+      font-size: 11.5pt;
+    }
+
+    .body {
+      margin-bottom: 8mm;
+
+      text-align: left;
+
+      font-size: 11.5pt;
+
+      line-height: 1.75;
+    }
+
+    .field-val {
+      display: inline-block;
+
+      min-width: 20mm;
+
+      padding: 0 2px;
+
+      font-weight: 600;
+
+      border-bottom: 1px dotted #000;
+    }
+
+    .details-title {
+      margin: 0 0 5mm;
+
+      font-size: 11.5pt;
+
+      line-height: 1.4;
+    }
+
+    .detail-line {
+      display: flex;
+
+      align-items: baseline;
+
+      width: 100%;
+
+      margin: 4mm 0;
+
+      font-size: 11.5pt;
+
+      line-height: 1.4;
+    }
+
+    .detail-label {
+      flex: 0 0 70mm;
+
+      white-space: nowrap;
+    }
+
+    .detail-val {
+      flex: 1;
+
+      min-height: 1.2em;
+
+      padding: 0 2px;
+
+      font-weight: 600;
+
+      border-bottom: 1px dotted #000;
+    }
+
+    .auth {
+      width: 58%;
+
+      margin-top: 25mm;
+
+      margin-left: auto;
+
+      font-size: 11pt;
+    }
+
+    .auth h4 {
+      margin: 0 0 5mm;
+
+      font-size: 11pt;
+
+      font-weight: 700;
+
+      text-decoration: underline;
+    }
+
+    .auth-row {
+      display: flex;
+
+      align-items: baseline;
+
+      gap: 2mm;
+
+      margin: 3.5mm 0;
+    }
+
+    .auth-row .k {
+      flex: 0 0 25mm;
+
+      white-space: nowrap;
+    }
+
+    .auth-row .v {
+      flex: 1;
+
+      min-height: 1.1em;
+
+      border-bottom: 1px dotted #000;
+    }
+
+    @media print {
+
+      html,
+      body {
+        width: 210mm;
+        height: 297mm;
+
+        margin: 0;
+        padding: 0;
+      }
+
+      .page {
+        width: 210mm;
+        height: 297mm;
+
+        margin: 0;
+
+        padding: 14mm 16mm 16mm;
+
+        page-break-after: avoid;
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+
+</head>
+
+<body>
+
+  <div class="page">
+
+    <div class="top-bar">
+
+      <div class="seal">
+
+        <div class="est">
+          स्थापित - 1978
+        </div>
+
+        ${logoImgTag('seal-logo')}
+
+      </div>
+
+      <div class="head-mid">
+
+        <p class="main">
+          SANT SANDHYA DAS MAHILA COLLEGE
+        </p>
+
+        <p class="sub">
+          BARH, PATNA
+        </p>
+
+      </div>
+
+      <div class="code">
+        COLLEGE CODE : 435
+      </div>
+
     </div>
-    <br>
+
+    <p class="recogn">
+
+      (Recognised by government of Bihar and affiliated to
+      Patliputra University, Patna in the faculties of arts
+      &amp; science up to degree hons. level)
+
+    </p>
+
+    <div class="doc-title">
+      Bonafide Certificate
+    </div>
+
+    <div class="meta-row">
+
+      <span>
+        Ref no ${dottedVal(data.certificateNo)}
+      </span>
+
+      <span>
+        Date: ${dottedVal(dateStr)}
+      </span>
+
+    </div>
 
     <div class="body">
-      This is to certify that Mr/Ms ${dottedVal(data.name)}, bearing registration No ${dottedVal(data.registrationNo)} is a bonafide student of this
-      Institute, studying in the ${dottedVal(data.semester)} (semester/year) ${dottedVal(data.courseName)} course during academic year ${dottedVal(data.session)}.
+
+      This is to certify that Mr/Ms
+      ${dottedVal(data.name)},
+      bearing registration No
+      ${dottedVal(data.registrationNo)}
+      is a bonafide student of this Institute, studying in the
+      ${dottedVal(data.semester)}
+      (semester/year)
+      ${dottedVal(data.courseName)}
+      course during academic year
+      ${dottedVal(data.session)}.
+
     </div>
 
-    <p class="details-title">The student details as entered in our institute record are:</p>
-    <div class="detail-line"><span class="detail-label">Date of birth :</span><span class="detail-val">${escapeHtml(dobStr)}</span></div>
-    <div class="detail-line"><span class="detail-label">Father's name :</span><span class="detail-val">${escapeHtml(data.fatherName || '')}</span></div>
-    <div class="detail-line"><span class="detail-label">Mother;s name :</span><span class="detail-val">${escapeHtml(data.motherName || '')}</span></div>
-    <div class="detail-line"><span class="detail-label">Date of admission :</span><span class="detail-val">${escapeHtml(admissionDate)}</span></div>
-    <div class="detail-line"><span class="detail-label">Expected year of course completion :</span><span class="detail-val">${escapeHtml(completionY)}</span></div>
+    <p class="details-title">
 
-      <br>
-      <br>
-      <br>
-      <br>
+      The student details as entered in our institute record are:
+
+    </p>
+
+    <div class="detail-line">
+
+      <span class="detail-label">
+        Date of birth :
+      </span>
+
+      <span class="detail-val">
+        ${escapeHtml(dobStr)}
+      </span>
+
+    </div>
+
+    <div class="detail-line">
+
+      <span class="detail-label">
+        Father's name :
+      </span>
+
+      <span class="detail-val">
+        ${escapeHtml(data.fatherName || '')}
+      </span>
+
+    </div>
+
+    <div class="detail-line">
+
+      <span class="detail-label">
+        Mother's name :
+      </span>
+
+      <span class="detail-val">
+        ${escapeHtml(data.motherName || '')}
+      </span>
+
+    </div>
+
+    <div class="detail-line">
+
+      <span class="detail-label">
+        Date of admission :
+      </span>
+
+      <span class="detail-val">
+        ${escapeHtml(admissionDate)}
+      </span>
+
+    </div>
+
+    <div class="detail-line">
+
+      <span class="detail-label">
+        Expected year of course completion :
+      </span>
+
+      <span class="detail-val">
+        ${escapeHtml(completionY)}
+      </span>
+
+    </div>
 
     <div class="auth">
 
-      <h4>Authorized signature with stamp</h4>
-      <div class="auth-row"><span class="k">Name :</span><span class="v"></span></div>
-      <div class="auth-row"><span class="k">Designation :</span><span class="v"></span></div>
-      <div class="auth-row"><span class="k">Mobile :</span><span class="v"></span></div>
-      <div class="auth-row"><span class="k">Email :</span><span class="v"></span></div>
+      <h4>
+        Authorized signature with stamp
+      </h4>
+
+      <div class="auth-row">
+
+        <span class="k">
+          Name :
+        </span>
+
+        <span class="v"></span>
+
+      </div>
+
+      <div class="auth-row">
+
+        <span class="k">
+          Designation :
+        </span>
+
+        <span class="v"></span>
+
+      </div>
+
+      <div class="auth-row">
+
+        <span class="k">
+          Mobile :
+        </span>
+
+        <span class="v"></span>
+
+      </div>
+
+      <div class="auth-row">
+
+        <span class="k">
+          Email :
+        </span>
+
+        <span class="v"></span>
+
+      </div>
+
     </div>
+
   </div>
+
 </body>
 </html>`;
 }
