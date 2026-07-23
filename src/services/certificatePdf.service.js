@@ -82,25 +82,25 @@ exports.generateCertificatePDF = async (certificateId, options = {}) => {
   // }
 
   if (!customCertificateNo) {
-      throw new AppError('Certificate number must be provided before PDF creation', 400);
+    throw new AppError('Certificate number must be provided before PDF creation', 400);
   }
 
   let htmlContent;
   if (type === 'CLC') {
     htmlContent = generateCLCTemplate({
-  ...certificate,
-  certificateNo: customCertificateNo
-});
+      ...certificate,
+      certificateNo: customCertificateNo
+    });
   } else if (type === 'BONAFIDE') {
     htmlContent = generateBonafideTemplate({
-  ...certificate,
-  certificateNo: customCertificateNo
-});
+      ...certificate,
+      certificateNo: customCertificateNo
+    });
   } else if (type === 'CHARACTER') {
     htmlContent = generateCharacterTemplate({
-  ...certificate,
-  certificateNo: customCertificateNo
-});
+      ...certificate,
+      certificateNo: customCertificateNo
+    });
   } else {
     throw new AppError('Invalid certificate type', 400);
   }
@@ -638,6 +638,7 @@ function generateBonafideTemplate(data) {
     </div>
 
     <div class="body">
+    <br>
 
       This is to certify that Mr/Ms
       ${dottedVal(data.name)},
@@ -719,6 +720,8 @@ function generateBonafideTemplate(data) {
     </div>
 
     <div class="auth">
+    <br>
+    <br>
 
       <h4>
         Authorized signature with stamp
