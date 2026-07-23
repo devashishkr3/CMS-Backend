@@ -362,68 +362,140 @@ exports.approveApplication = async (req, res, next) => {
       return next(new AppError("Cannot approve rejected application", 400));
     }
 
-    // ✅ 1️⃣ Generate CLC certificate number
-    const clcCertificateNo = await generateCertificateNo("CLC");
+    const certType = certificate.type || "CLC";
 
-    // Save certificateNo first
-    await prisma.certificateRequest.update({
-      where: { id },
-      data: {
-        certificateNo: clcCertificateNo,
-        status: "APPROVED",
-        issuedAt: new Date(),
-      },
-    });
+    if (certType === "BONAFIDE") {
+      // ✅ Generate Bonafide Certificate
+      const bonafideCertNo = await generateCertificateNo("BONAFIDE");
 
-    let clcPdfUrl = null;
-    let characterPdfUrl = null;
+      await prisma.certificateRequest.update({
+        where: { id },
+        data: {
+          certificateNo: bonafideCertNo,
+          status: "APPROVED",
+          issuedAt: new Date(),
+        },
+      });
 
-    try {
-      // ✅ 2️⃣ Generate CLC PDF (uses certificateNo from DB)
       const { pdfUrl } = await generateCertificatePDF(id, {
-        type: "CLC",
-        certificateNo: clcCertificateNo,
+        type: "BONAFIDE",
+        certificateNo: bonafideCertNo,
       });
 
-      clcPdfUrl = pdfUrl;
+      const finalCertificate = await prisma.certificateRequest.update({
+        where: { id },
+        data: {
+          status: "ISSUED",
+          pdfUrl: pdfUrl,
+          remarks: null,
+        },
+        include: { payment: true },
+      });
 
-      // ✅ 3️⃣ Generate Character certificateNo (NOT SAVED IN DB)
-      const characterCertificateNo = await generateCertificateNo("CHARACTER");
+      return res.status(200).json({
+        status: "success",
+        message: "Bonafide certificate issued successfully",
+        data: {
+          certificate: finalCertificate,
+          certificateNo: bonafideCertNo,
+          pdfUrl,
+        },
+      });
+    } else if (certType === "CHARACTER") {
+      // ✅ Generate Character Certificate only
+      const charCertNo = await generateCertificateNo("CHARACTER");
 
-      // ✅ 4️⃣ Generate Character PDF (pass certificateNo manually)
-      const { pdfUrl: charPdf } = await generateCertificatePDF(id, {
+      await prisma.certificateRequest.update({
+        where: { id },
+        data: {
+          certificateNo: charCertNo,
+          status: "APPROVED",
+          issuedAt: new Date(),
+        },
+      });
+
+      const { pdfUrl } = await generateCertificatePDF(id, {
         type: "CHARACTER",
-        certificateNo: characterCertificateNo,
+        certificateNo: charCertNo,
       });
 
-      characterPdfUrl = charPdf;
-    } catch (err) {
-      console.error("Dual certificate generation error:", err);
+      const finalCertificate = await prisma.certificateRequest.update({
+        where: { id },
+        data: {
+          status: "ISSUED",
+          pdfUrl: pdfUrl,
+          remarks: null,
+        },
+        include: { payment: true },
+      });
+
+      return res.status(200).json({
+        status: "success",
+        message: "Character certificate issued successfully",
+        data: {
+          certificate: finalCertificate,
+          certificateNo: charCertNo,
+          pdfUrl,
+        },
+      });
+    } else {
+      // ✅ Default / CLC: Generate CLC + Character dual certificates
+      const clcCertificateNo = await generateCertificateNo("CLC");
+
+      await prisma.certificateRequest.update({
+        where: { id },
+        data: {
+          certificateNo: clcCertificateNo,
+          status: "APPROVED",
+          issuedAt: new Date(),
+        },
+      });
+
+      let clcPdfUrl = null;
+      let characterPdfUrl = null;
+
+      try {
+        const { pdfUrl } = await generateCertificatePDF(id, {
+          type: "CLC",
+          certificateNo: clcCertificateNo,
+        });
+
+        clcPdfUrl = pdfUrl;
+
+        const characterCertificateNo = await generateCertificateNo("CHARACTER");
+
+        const { pdfUrl: charPdf } = await generateCertificatePDF(id, {
+          type: "CHARACTER",
+          certificateNo: characterCertificateNo,
+        });
+
+        characterPdfUrl = charPdf;
+      } catch (err) {
+        console.error("Dual certificate generation error:", err);
+      }
+
+      const finalCertificate = await prisma.certificateRequest.update({
+        where: { id },
+        data: {
+          status: "ISSUED",
+          pdfUrl: clcPdfUrl,
+          remarks: characterPdfUrl,
+        },
+        include: { payment: true },
+      });
+
+      return res.status(200).json({
+        status: "success",
+        message: "CLC + Character certificate issued successfully",
+        data: {
+          certificate: finalCertificate,
+          clcCertificateNo,
+          characterPdfUrl,
+        },
+      });
     }
-
-    // ✅ 5️⃣ FINAL single DB update
-    const finalCertificate = await prisma.certificateRequest.update({
-      where: { id },
-      data: {
-        status: "ISSUED",
-        pdfUrl: clcPdfUrl,
-        remarks: characterPdfUrl,
-      },
-      include: { payment: true },
-    });
-
-    res.status(200).json({
-      status: "success",
-      message: "CLC + Character certificate issued successfully",
-      data: {
-        certificate: finalCertificate,
-        clcCertificateNo,
-        characterPdfUrl,
-      },
-    });
   } catch (error) {
     console.error("Approve Certificate Error:", error);
-    // await browser.close();
     next(error);
   }
 };
@@ -532,26 +604,35 @@ exports.downloadCLCCertificate = async (req, res, next) => {
     }
 
     if (!certificate.pdfUrl) {
-      return next(new AppError("CLC Certificate PDF not available", 404));
+      return next(new AppError("Certificate PDF not available", 404));
     }
 
     const fs = require("fs");
     const path = require("path");
+    const type = certificate.type || "CLC";
 
-    const filePath = path.join(
+    const typeFilePath = path.join(
+      __dirname,
+      "../../temp/certificates",
+      `certificate_${id}_${type}.pdf`
+    );
+
+    const clcFilePath = path.join(
       __dirname,
       "../../temp/certificates",
       `certificate_${id}_CLC.pdf`
     );
 
+    const filePath = fs.existsSync(typeFilePath) ? typeFilePath : (fs.existsSync(clcFilePath) ? clcFilePath : null);
+
     // ==============================
     // LOCAL FILE
     // ==============================
-    if (fs.existsSync(filePath)) {
+    if (filePath && fs.existsSync(filePath)) {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${certificate.certificateNo || "CLC"}.pdf"`
+        `attachment; filename="${type}_${certificate.certificateNo || id}.pdf"`
       );
 
       return fs.createReadStream(filePath).pipe(res);
@@ -573,7 +654,7 @@ exports.downloadCLCCertificate = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error("Download CLC Error:", error);
+    console.error("Download Error:", error);
     next(error);
   }
 };
