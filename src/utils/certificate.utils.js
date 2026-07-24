@@ -8,7 +8,7 @@ const prisma = require('../config/prisma');
  */
 // exports.generateCertificateNo = async (type) => {
 //   const year = new Date().getFullYear();
-  
+
 //   // Get count of certificates for this type and year
 //   const count = await prisma.certificateRequest.count({
 //     where: {
@@ -18,7 +18,7 @@ const prisma = require('../config/prisma');
 //       }
 //     }
 //   });
-  
+
 //   const runningNumber = String(count + 1).padStart(4, '0');
 //   return `SSDM/${type}/${year}/${runningNumber}`;
 // };
@@ -36,7 +36,7 @@ exports.generateCertificateNo = async (type) => {
       },
     },
     orderBy: {
-      createdAt: "desc",
+      certificateNo: "desc",
     },
   });
 
