@@ -317,7 +317,7 @@ function generateBonafideTemplate(data) {
 
       display: grid;
 
-      grid-template-columns: 26mm 1fr auto;
+      grid-template-columns: 26mm 1fr 26mm;
 
       align-items: start;
 
@@ -336,12 +336,6 @@ function generateBonafideTemplate(data) {
       line-height: 1.2;
     }
 
-    .seal .est {
-      margin-bottom: 1mm;
-
-      white-space: nowrap;
-    }
-
     .logo-img {
       display: block;
 
@@ -354,7 +348,7 @@ function generateBonafideTemplate(data) {
     }
 
     .seal-logo {
-      margin-top: 1mm;
+      margin-top: 0;
     }
 
     .logo-fallback {
@@ -370,8 +364,6 @@ function generateBonafideTemplate(data) {
 
     .head-mid {
       text-align: center;
-
-      padding-top: 1mm;
     }
 
     .head-mid .main {
@@ -396,8 +388,8 @@ function generateBonafideTemplate(data) {
       line-height: 1.2;
     }
 
-    .code {
-      padding-top: 2mm;
+    .head-mid .code {
+      margin: 2mm 0 0;
 
       font-size: 10.5pt;
 
@@ -587,10 +579,6 @@ function generateBonafideTemplate(data) {
 
       <div class="seal">
 
-        <div class="est">
-          स्थापित - 1978
-        </div>
-
         ${logoImgTag('seal-logo')}
 
       </div>
@@ -605,11 +593,13 @@ function generateBonafideTemplate(data) {
           BARH, PATNA
         </p>
 
+        <p class="code">
+          COLLEGE CODE : 435
+        </p>
+
       </div>
 
-      <div class="code">
-        COLLEGE CODE : 435
-      </div>
+      <div></div>
 
     </div>
 
