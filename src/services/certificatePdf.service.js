@@ -692,9 +692,9 @@ function generateBonafideTemplate(data) {
       </span>
 
       <span class="detail-val">
-        ${escapeHtml(admissionDate)}
+        
       </span>
-
+        
     </div>
 
     <div class="detail-line">
